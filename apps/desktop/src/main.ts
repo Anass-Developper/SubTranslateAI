@@ -1,0 +1,565 @@
+import { spawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import { cp, rm } from 'node:fs/promises';
+import { join, resolve } from 'node:path';
+
+import { DEFAULT_SERVER_SETTINGS, type ServerSettings, type Stats } from '@dual-subtitles/shared';
+import { app, BrowserWindow, clipboard, ipcMain, shell } from 'electron';
+import type { FastifyInstance } from 'fastify';
+
+import { loadConfig } from '../../local-server/src/config.js';
+import { buildServer } from '../../local-server/src/server.js';
+import type {
+  AppPreferences,
+  ControlPanelState,
+  DesktopStatus,
+  EditableServerSettings,
+  InstallResult,
+  SaveControlSettingsInput,
+  UpdateStatus,
+} from './contracts.js';
+import {
+  downloadOllamaInstaller,
+  runOllamaInstaller,
+  verifyOllamaInstaller,
+} from './ollama-installer.js';
+import { ollamaModelNames } from './ollama-status.js';
+import { DEFAULT_APP_PREFERENCES, readPreferences, writePreferences } from './preferences.js';
+import { readUpdateUrl, UpdateManager } from './update-manager.js';
+
+const MODEL = 'hf.co/tencent/Hy-MT2-7B-GGUF:Q4_K_M';
+const OLLAMA_TAGS_URL = 'http://127.0.0.1:11434/api/tags';
+const SERVER_URL = 'http://127.0.0.1:47831';
+const currentDirectory = __dirname;
+const hiddenLaunch = process.argv.includes('--hidden');
+const smokeTest = process.argv.includes('--smoke-test');
+
+let mainWindow: BrowserWindow | null = null;
+let server: FastifyInstance | null = null;
+let serverReady = false;
+let serverError: string | null = null;
+let serverTechnicalError: string | null = null;
+let setupBusy = false;
+let quitting = false;
+let preferences: AppPreferences = { ...DEFAULT_APP_PREFERENCES };
+let updateManager: UpdateManager | null = null;
+
+console.error(`[SubTranslateAI] Démarrage (Electron ${process.versions.electron}).`);
+
+if (!app.requestSingleInstanceLock()) {
+  app.quit();
+} else {
+  app.on('second-instance', () => showMainWindow());
+  void app
+    .whenReady()
+    .then(async () => {
+      preferences = await readPreferences(preferencesPath());
+      applyLoginPreference(preferences.launchAtLogin);
+      registerIpcHandlers();
+      await syncExtensionFiles();
+      await startServer();
+      createWindow();
+      await initializeUpdates();
+      void ensureOllamaRunning(false);
+      if (preferences.automaticUpdates) {
+        setTimeout(() => void updateManager?.check(), 5_000);
+      }
+    })
+    .catch((error: unknown) => {
+      console.error('[SubTranslateAI] Initialisation impossible.', error);
+      serverError = error instanceof Error ? error.message : String(error);
+    });
+}
+
+app.on('window-all-closed', () => void shutdown());
+
+async function startServer(): Promise<void> {
+  const config = loadConfig({
+    ...process.env,
+    OPENCODE_GO_API_KEY: '',
+    TRANSLATION_PROVIDER: 'ollama',
+    OLLAMA_ENDPOINT: 'http://127.0.0.1:11434/api/chat',
+    OLLAMA_MODEL: MODEL,
+    OLLAMA_MODEL_TYPE: 'hy-mt',
+    OLLAMA_CONCURRENCY: '2',
+    DATABASE_PATH: join(app.getPath('userData'), 'subtitles.db'),
+    LOG_LEVEL: 'warn',
+    PORT: '47831',
+    REQUEST_TIMEOUT_MS: '45000',
+  });
+
+  try {
+    server = await buildServer({ config });
+    await server.listen({ host: config.host, port: config.port });
+    serverReady = true;
+    serverError = null;
+    serverTechnicalError = null;
+  } catch (error) {
+    console.error("[SubTranslateAI] Le serveur local n'a pas pu démarrer.", error);
+    serverTechnicalError = error instanceof Error ? (error.stack ?? error.message) : String(error);
+    if (await existingServerIsHealthy()) {
+      server = null;
+      serverReady = true;
+      serverError = 'Un serveur SubTranslateAI déjà lancé est réutilisé.';
+      return;
+    }
+    serverError =
+      'Le serveur local n’a pas pu démarrer. Ouvre Aide puis copie le diagnostic pour obtenir les détails.';
+    if (server) await server.close().catch(() => undefined);
+    server = null;
+  }
+}
+
+function createWindow(): void {
+  mainWindow = new BrowserWindow({
+    width: 1_020,
+    height: 780,
+    minWidth: 760,
+    minHeight: 640,
+    show: false,
+    backgroundColor: '#07111f',
+    title: 'SubTranslateAI',
+    icon: join(currentDirectory, 'icon.png'),
+    webPreferences: {
+      preload: join(currentDirectory, 'preload.cjs'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+    },
+  });
+  mainWindow.setMenuBarVisibility(false);
+  mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  mainWindow.webContents.on('will-navigate', (event) => event.preventDefault());
+  mainWindow.once('ready-to-show', () => {
+    if (!hiddenLaunch) mainWindow?.show();
+  });
+  mainWindow.on('closed', () => {
+    mainWindow = null;
+  });
+  void mainWindow.loadFile(join(currentDirectory, 'index.html'));
+}
+
+function showMainWindow(): void {
+  if (!mainWindow) return;
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.show();
+  mainWindow.focus();
+}
+
+function registerIpcHandlers(): void {
+  ipcMain.handle('desktop:get-status', async (): Promise<DesktopStatus> => getStatus());
+  ipcMain.handle('desktop:setup-everything', async (): Promise<InstallResult> => setupEverything());
+  ipcMain.handle('desktop:install-model', async (): Promise<InstallResult> => installModel());
+  ipcMain.handle('desktop:get-control-panel', async (): Promise<ControlPanelState> =>
+    getControlPanel(),
+  );
+  ipcMain.handle(
+    'desktop:save-control-panel',
+    async (_event, input: unknown): Promise<ControlPanelState> => saveControlPanel(input),
+  );
+  ipcMain.handle('desktop:clear-cache', async (): Promise<InstallResult> => clearCache());
+  ipcMain.handle('desktop:get-update-status', (): UpdateStatus => updateStatus());
+  ipcMain.handle('desktop:check-updates', async (): Promise<UpdateStatus> => {
+    return (await updateManager?.check(true)) ?? updateStatus();
+  });
+  ipcMain.handle('desktop:install-update', () => updateManager?.install());
+  ipcMain.handle('desktop:open-extension-folder', async () => shell.openPath(extensionPath()));
+  ipcMain.handle('desktop:open-extensions-page', async (_event, browser: unknown) => {
+    if (browser === 'chrome' || browser === 'edge') await openExtensionsPage(browser);
+  });
+  ipcMain.handle('desktop:open-ollama-download', async () => {
+    await shell.openExternal('https://ollama.com/download/windows');
+  });
+  ipcMain.handle('desktop:copy-diagnostics', async () => copyDiagnostics());
+}
+
+async function initializeUpdates(): Promise<void> {
+  const updateUrl = await readUpdateUrl(join(currentDirectory, 'update-config.json'));
+  updateManager = new UpdateManager({
+    currentVersion: app.getVersion(),
+    updateUrl,
+    packaged: app.isPackaged,
+    notify: (status) => mainWindow?.webContents.send('desktop:update-status', status),
+  });
+  updateManager.setEnabled(preferences.automaticUpdates);
+}
+
+async function getStatus(): Promise<DesktopStatus> {
+  const ollamaExecutable = findOllamaExecutable();
+  const tags = await fetchOllamaTags();
+  return {
+    serverReady,
+    serverError,
+    ollamaReachable: tags !== null,
+    ollamaInstalled: ollamaExecutable !== null,
+    modelInstalled: tags?.some((name) => name === MODEL) ?? false,
+    model: MODEL,
+    extensionPath: extensionPath(),
+    version: app.getVersion(),
+    setupBusy,
+  };
+}
+
+async function setupEverything(): Promise<InstallResult> {
+  if (setupBusy) return { ok: false, error: 'Une installation est déjà en cours.' };
+  setupBusy = true;
+  try {
+    let executable = findOllamaExecutable();
+    if (!executable) {
+      sendProgress('Téléchargement officiel d’Ollama…');
+      const installerPath = join(app.getPath('temp'), 'SubTranslateAI-OllamaSetup.exe');
+      try {
+        await downloadOllamaInstaller(installerPath, (percent) => {
+          sendProgress(
+            percent === null
+              ? 'Téléchargement officiel d’Ollama…'
+              : `Téléchargement d’Ollama : ${Math.round(percent)} %`,
+          );
+        });
+        sendProgress('Vérification de la signature numérique d’Ollama…');
+        await verifyOllamaInstaller(installerPath);
+        sendProgress('Installation d’Ollama dans ton profil Windows…');
+        await runOllamaInstaller(installerPath);
+      } finally {
+        await rm(installerPath, { force: true }).catch(() => undefined);
+      }
+      executable = await waitForOllamaExecutable(90_000);
+      if (!executable)
+        throw new Error('Ollama a été installé, mais son exécutable reste introuvable.');
+    }
+    await ensureOllamaRunning(true);
+    await pullModel(executable);
+    sendProgress('Installation terminée. SubTranslateAI est prêt.');
+    return { ok: true };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    sendProgress(message);
+    return { ok: false, error: message };
+  } finally {
+    setupBusy = false;
+  }
+}
+
+async function installModel(): Promise<InstallResult> {
+  const executable = findOllamaExecutable();
+  if (!executable) return setupEverything();
+  if (setupBusy) return { ok: false, error: 'Une installation est déjà en cours.' };
+  setupBusy = true;
+  try {
+    await ensureOllamaRunning(true);
+    await pullModel(executable);
+    return { ok: true };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    sendProgress(message);
+    return { ok: false, error: message };
+  } finally {
+    setupBusy = false;
+  }
+}
+
+async function pullModel(executable: string): Promise<void> {
+  const tags = await fetchOllamaTags();
+  if (tags?.includes(MODEL)) {
+    sendProgress('Hy‑MT2‑7B est déjà installé.');
+    return;
+  }
+  sendProgress('Téléchargement de Hy‑MT2‑7B (environ 4,6 Go)…');
+  await new Promise<void>((resolvePromise, reject) => {
+    const child = spawn(executable, ['pull', MODEL], { windowsHide: true, shell: false });
+    child.stdout.on('data', () => sendProgress('Téléchargement de Hy‑MT2‑7B en cours…'));
+    child.stderr.on('data', (chunk: Buffer) => {
+      const match = chunk.toString('utf8').match(/(\d{1,3})%/u);
+      sendProgress(
+        match ? `Téléchargement de Hy‑MT2‑7B : ${match[1]} %` : 'Vérification du modèle…',
+      );
+    });
+    child.once('error', reject);
+    child.once('exit', (code) => {
+      if (code === 0) resolvePromise();
+      else reject(new Error(`Ollama s’est arrêté avec le code ${code ?? 'inconnu'}.`));
+    });
+  });
+  sendProgress('Hy‑MT2‑7B est prêt.');
+}
+
+async function ensureOllamaRunning(required: boolean): Promise<boolean> {
+  if ((await fetchOllamaTags()) !== null) return true;
+  const executable = findOllamaExecutable();
+  if (!executable) {
+    if (required) throw new Error('Ollama n’est pas installé.');
+    return false;
+  }
+  sendProgress('Démarrage du moteur Ollama…');
+  const child = spawn(executable, ['serve'], {
+    detached: true,
+    windowsHide: true,
+    stdio: 'ignore',
+  });
+  child.unref();
+  const ready = await waitForOllama(45_000);
+  if (!ready && required) throw new Error('Ollama est installé, mais son service ne démarre pas.');
+  return ready;
+}
+
+async function fetchOllamaTags(): Promise<string[] | null> {
+  try {
+    const response = await fetch(OLLAMA_TAGS_URL, { signal: AbortSignal.timeout(2_500) });
+    if (!response.ok) return null;
+    return ollamaModelNames(await response.json());
+  } catch {
+    return null;
+  }
+}
+
+async function waitForOllama(timeoutMs: number): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if ((await fetchOllamaTags()) !== null) return true;
+    await delay(1_000);
+  }
+  return false;
+}
+
+async function waitForOllamaExecutable(timeoutMs: number): Promise<string | null> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const executable = findOllamaExecutable();
+    if (executable) return executable;
+    await delay(1_000);
+  }
+  return null;
+}
+
+function findOllamaExecutable(): string | null {
+  const localAppData = process.env.LOCALAPPDATA;
+  const candidates = [
+    localAppData ? join(localAppData, 'Programs', 'Ollama', 'ollama.exe') : null,
+    ...(process.env.PATH ?? '')
+      .split(';')
+      .filter(Boolean)
+      .map((entry) => join(entry, 'ollama.exe')),
+  ];
+  return (
+    candidates.find((candidate): candidate is string =>
+      Boolean(candidate && existsSync(candidate)),
+    ) ?? null
+  );
+}
+
+async function getControlPanel(): Promise<ControlPanelState> {
+  const [serverSettings, stats] = await Promise.all([fetchServerSettings(), fetchStats()]);
+  return {
+    preferences: { ...preferences },
+    serverSettings: editableServerSettings(serverSettings),
+    stats: stats
+      ? {
+          translatedLines: stats.translatedLines,
+          cacheHits: stats.cacheHits,
+          errors: stats.errors,
+          cacheEntries: stats.cacheEntries,
+          cacheHitRate: stats.cacheHitRate,
+        }
+      : null,
+  };
+}
+
+async function saveControlPanel(input: unknown): Promise<ControlPanelState> {
+  const next = validateControlInput(input);
+  preferences = {
+    automaticUpdates: next.automaticUpdates,
+    launchAtLogin: next.launchAtLogin,
+  };
+  await writePreferences(preferencesPath(), preferences);
+  applyLoginPreference(preferences.launchAtLogin);
+  updateManager?.setEnabled(preferences.automaticUpdates);
+  await serverRequest('/settings', {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      requestTimeoutMs: next.requestTimeoutMs,
+      maxRetries: next.maxRetries,
+      memoryCacheEntries: next.memoryCacheEntries,
+    }),
+  });
+  sendProgress('Réglages enregistrés.');
+  return getControlPanel();
+}
+
+function validateControlInput(value: unknown): SaveControlSettingsInput {
+  if (typeof value !== 'object' || value === null) throw new Error('Réglages invalides.');
+  const input = value as Partial<SaveControlSettingsInput>;
+  if (typeof input.automaticUpdates !== 'boolean' || typeof input.launchAtLogin !== 'boolean') {
+    throw new Error('Options de démarrage invalides.');
+  }
+  return {
+    automaticUpdates: input.automaticUpdates,
+    launchAtLogin: input.launchAtLogin,
+    requestTimeoutMs: boundedInteger(input.requestTimeoutMs, 5_000, 120_000),
+    maxRetries: boundedInteger(input.maxRetries, 0, 5),
+    memoryCacheEntries: boundedInteger(input.memoryCacheEntries, 100, 20_000),
+  };
+}
+
+function boundedInteger(value: unknown, minimum: number, maximum: number): number {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < minimum || value > maximum) {
+    throw new Error(`Valeur attendue entre ${minimum} et ${maximum}.`);
+  }
+  return value;
+}
+
+async function fetchServerSettings(): Promise<ServerSettings> {
+  try {
+    return (await serverRequest('/settings')) as ServerSettings;
+  } catch {
+    return { ...DEFAULT_SERVER_SETTINGS };
+  }
+}
+
+async function fetchStats(): Promise<Stats | null> {
+  try {
+    return (await serverRequest('/stats')) as Stats;
+  } catch {
+    return null;
+  }
+}
+
+function editableServerSettings(settings: ServerSettings): EditableServerSettings {
+  return {
+    requestTimeoutMs: settings.requestTimeoutMs,
+    maxRetries: settings.maxRetries,
+    memoryCacheEntries: settings.memoryCacheEntries,
+  };
+}
+
+async function clearCache(): Promise<InstallResult> {
+  try {
+    const result = (await serverRequest('/cache', { method: 'DELETE' })) as { cleared?: unknown };
+    const cleared = typeof result.cleared === 'number' ? result.cleared : 0;
+    sendProgress(`Cache vidé : ${cleared} traduction(s) supprimée(s).`);
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+async function serverRequest(path: string, init?: RequestInit): Promise<unknown> {
+  const response = await fetch(`${SERVER_URL}${path}`, {
+    ...init,
+    signal: AbortSignal.timeout(10_000),
+  });
+  if (!response.ok) throw new Error(`Le serveur local a répondu HTTP ${response.status}.`);
+  return response.json();
+}
+
+async function copyDiagnostics(): Promise<void> {
+  const [status, controls] = await Promise.all([getStatus(), getControlPanel()]);
+  clipboard.writeText(
+    JSON.stringify(
+      {
+        app: 'SubTranslateAI',
+        version: app.getVersion(),
+        platform: process.platform,
+        arch: process.arch,
+        electron: process.versions.electron,
+        status,
+        serverTechnicalError,
+        update: updateStatus(),
+        settings: controls.serverSettings,
+        stats: controls.stats,
+      },
+      null,
+      2,
+    ),
+  );
+  sendProgress('Diagnostic copié dans le presse-papiers.');
+}
+
+async function openExtensionsPage(browser: 'chrome' | 'edge'): Promise<void> {
+  const executable = findBrowserExecutable(browser);
+  const url = browser === 'chrome' ? 'chrome://extensions' : 'edge://extensions';
+  if (!executable) {
+    clipboard.writeText(url);
+    sendProgress(`${url} copié. Colle cette adresse dans ton navigateur.`);
+    return;
+  }
+  spawn(executable, [url], { detached: true, windowsHide: true, stdio: 'ignore' }).unref();
+}
+
+function findBrowserExecutable(browser: 'chrome' | 'edge'): string | null {
+  const programFiles = [
+    process.env.PROGRAMFILES,
+    process.env['PROGRAMFILES(X86)'],
+    process.env.LOCALAPPDATA,
+  ];
+  const relative =
+    browser === 'chrome'
+      ? join('Google', 'Chrome', 'Application', 'chrome.exe')
+      : join('Microsoft', 'Edge', 'Application', 'msedge.exe');
+  return (
+    programFiles
+      .filter((entry): entry is string => Boolean(entry))
+      .map((entry) => join(entry, relative))
+      .find(existsSync) ?? null
+  );
+}
+
+function applyLoginPreference(enabled: boolean): void {
+  if (!app.isPackaged || smokeTest) return;
+  app.setLoginItemSettings({ openAtLogin: enabled, args: ['--hidden'] });
+}
+
+function preferencesPath(): string {
+  return join(app.getPath('userData'), 'preferences.json');
+}
+
+function extensionPath(): string {
+  return join(app.getPath('userData'), 'extension');
+}
+
+function bundledExtensionPath(): string {
+  return app.isPackaged
+    ? join(process.resourcesPath, 'extension')
+    : resolve(app.getAppPath(), '../extension/dist');
+}
+
+async function syncExtensionFiles(): Promise<void> {
+  await cp(bundledExtensionPath(), extensionPath(), { recursive: true, force: true });
+}
+
+function sendProgress(message: string): void {
+  mainWindow?.webContents.send('desktop:progress', message);
+}
+
+function updateStatus(): UpdateStatus {
+  return (
+    updateManager?.getStatus() ?? {
+      supported: false,
+      phase: 'disabled',
+      currentVersion: app.getVersion(),
+      availableVersion: null,
+      progressPercent: null,
+      message: 'Mises à jour non initialisées.',
+    }
+  );
+}
+
+async function existingServerIsHealthy(): Promise<boolean> {
+  try {
+    const response = await fetch(`${SERVER_URL}/health`, { signal: AbortSignal.timeout(1_500) });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+function delay(milliseconds: number): Promise<void> {
+  return new Promise((resolvePromise) => setTimeout(resolvePromise, milliseconds));
+}
+
+async function shutdown(): Promise<void> {
+  if (quitting) return;
+  quitting = true;
+  if (server) await server.close().catch(() => undefined);
+  app.quit();
+}

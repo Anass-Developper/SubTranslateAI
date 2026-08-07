@@ -1,0 +1,101 @@
+import type { Stats, TranslateRequest, TranslateResponse } from "@dual-subtitles/shared";
+import type { BridgeCaptureStats } from "./tracks/track-capture";
+
+export type PlatformId =
+  "youtube" | "netflix" | "primeVideo" | "canalPlus" | "appleTv" | "bilibili" | "generic";
+
+export type LanguageOrder = "fr-first" | "zh-first";
+
+export interface PlatformSettings {
+  youtube: boolean;
+  netflix: boolean;
+  primeVideo: boolean;
+  canalPlus: boolean;
+  appleTv: boolean;
+  bilibili: boolean;
+  generic: boolean;
+}
+
+export interface ExtensionSettings {
+  settingsVersion: number;
+  enabled: boolean;
+  platforms: PlatformSettings;
+  serverUrl: string;
+  languageOrder: LanguageOrder;
+  fontSize: number;
+  verticalPosition: number;
+  backgroundOpacity: number;
+  textShadow: boolean;
+  hideNativeSubtitles: boolean;
+  debug: boolean;
+  preloadEnabled: boolean;
+  debounceMs: number;
+  fragmentWindowMs: number;
+  reconnectIntervalMs: number;
+  requestTimeoutMs: number;
+  contextLineCount: number;
+}
+
+export interface CandidateDiagnostic {
+  selector: string;
+  tagName: string;
+  className: string;
+  text: string;
+  visible: boolean;
+}
+
+export interface SubtitleSnapshot {
+  text: string;
+  selector: string | null;
+  candidates: CandidateDiagnostic[];
+  capturedAt: number;
+}
+
+export interface DiagnosticReport {
+  extensionVersion: string;
+  platform: PlatformId;
+  pageOrigin: string;
+  pagePath: string;
+  adapter: string;
+  enabled: boolean;
+  detectedText: string;
+  selector: string | null;
+  candidates: CandidateDiagnostic[];
+  serverReachable: boolean | null;
+  lastError: string | null;
+  preload: {
+    enabled: boolean;
+    trackId: string | null;
+    total: number;
+    translated: number;
+    inFlight: number;
+    failed: number;
+    pending: number;
+    lastError: string | null;
+  };
+  capture?: {
+    bridge: (BridgeCaptureStats & { receivedAt: number }) | null;
+    tracks: Array<{
+      trackId: string;
+      cues: number;
+      language?: string;
+      label?: string;
+      activeHint?: boolean;
+    }>;
+  };
+  capturedAt: string;
+}
+
+export type ContentMessage =
+  { type: "GET_DIAGNOSTICS" } | { type: "REFRESH_SETTINGS" } | { type: "TOGGLE_EXTENSION" };
+
+export type TranslationRequest = TranslateRequest;
+export type TranslationResponse = TranslateResponse;
+
+export interface ServerStats extends Partial<Stats> {
+  translated?: number;
+  translatedLines?: number;
+  cacheHits?: number;
+  cached?: number;
+  [key: string]: unknown;
+}

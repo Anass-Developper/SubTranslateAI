@@ -1,0 +1,149 @@
+{
+  "description": "Dialogues originaux inspirés des contraintes de sous-titrage, sans extrait protégé de film ou de série.",
+  "samples": [
+    {
+      "id": "fr-register-1",
+      "category": "registre familier",
+      "sourceLanguage": "fr",
+      "targetLanguage": "zh",
+      "source": "Tu peux baisser d'un ton ? Les enfants dorment.",
+      "previousLines": [],
+      "reference": "你能小声点吗？孩子们在睡觉。"
+    },
+    {
+      "id": "fr-idiom-1",
+      "category": "idiome",
+      "sourceLanguage": "fr",
+      "targetLanguage": "zh",
+      "source": "Ça fait trois nuits que je n'ai pas fermé l'œil.",
+      "previousLines": [],
+      "reference": "我已经三天没合眼了。"
+    },
+    {
+      "id": "fr-formal-1",
+      "category": "vouvoiement",
+      "sourceLanguage": "fr",
+      "targetLanguage": "zh",
+      "source": "Vous auriez pu prévenir avant de débarquer chez moi.",
+      "previousLines": [],
+      "reference": "您来我家之前本可以先说一声。"
+    },
+    {
+      "id": "fr-anger-1",
+      "category": "colère",
+      "sourceLanguage": "fr",
+      "targetLanguage": "zh",
+      "source": "Lâche-moi, espèce de malade !",
+      "previousLines": [],
+      "reference": "放开我，你这个疯子！"
+    },
+    {
+      "id": "fr-context-1",
+      "category": "pronom en contexte",
+      "sourceLanguage": "fr",
+      "targetLanguage": "zh",
+      "source": "Elle dit qu'elle ne reviendra pas.",
+      "previousLines": ["Léa a appelé pendant ton absence."],
+      "reference": "她说她不会回来了。"
+    },
+    {
+      "id": "fr-colloquial-1",
+      "category": "oralité",
+      "sourceLanguage": "fr",
+      "targetLanguage": "zh",
+      "source": "C'est pas gagné, mais on a connu pire.",
+      "previousLines": [],
+      "reference": "还没成呢，不过更糟的情况我们也经历过。"
+    },
+    {
+      "id": "fr-warning-1",
+      "category": "avertissement",
+      "sourceLanguage": "fr",
+      "targetLanguage": "zh",
+      "source": "Ne touche surtout pas au bouton rouge.",
+      "previousLines": [],
+      "reference": "千万别碰那个红色按钮。"
+    },
+    {
+      "id": "fr-nuance-1",
+      "category": "reproche",
+      "sourceLanguage": "fr",
+      "targetLanguage": "zh",
+      "source": "Je te l'avais bien dit : cette porte ne mène nulle part.",
+      "previousLines": [],
+      "reference": "我早就告诉过你了：这扇门哪儿也通不了。"
+    },
+    {
+      "id": "zh-colloquial-1",
+      "category": "oralité",
+      "sourceLanguage": "zh",
+      "targetLanguage": "fr",
+      "source": "你少来这套，我不会再上当了。",
+      "previousLines": [],
+      "reference": "Arrête ton numéro, je ne me ferai plus avoir."
+    },
+    {
+      "id": "zh-inference-1",
+      "category": "déduction",
+      "sourceLanguage": "zh",
+      "targetLanguage": "fr",
+      "source": "门没锁，他肯定还在里面。",
+      "previousLines": [],
+      "reference": "La porte n'est pas verrouillée, il est sûrement encore à l'intérieur."
+    },
+    {
+      "id": "zh-formal-1",
+      "category": "politesse",
+      "sourceLanguage": "zh",
+      "targetLanguage": "fr",
+      "source": "您先坐，我去给您倒杯茶。",
+      "previousLines": [],
+      "reference": "Asseyez-vous, je vais vous servir une tasse de thé."
+    },
+    {
+      "id": "zh-regret-1",
+      "category": "regret",
+      "sourceLanguage": "zh",
+      "targetLanguage": "fr",
+      "source": "都怪我，要是我早点告诉你就好了。",
+      "previousLines": [],
+      "reference": "Tout est de ma faute. Si seulement je te l'avais dit plus tôt."
+    },
+    {
+      "id": "zh-urgency-1",
+      "category": "urgence",
+      "sourceLanguage": "zh",
+      "targetLanguage": "fr",
+      "source": "别磨蹭了，火车还有十分钟就开。",
+      "previousLines": [],
+      "reference": "Dépêche-toi, le train part dans dix minutes."
+    },
+    {
+      "id": "zh-context-1",
+      "category": "pronom en contexte",
+      "sourceLanguage": "zh",
+      "targetLanguage": "fr",
+      "source": "她为什么要这么做？",
+      "previousLines": ["小林把钥匙藏在厨房里了。"],
+      "reference": "Pourquoi a-t-elle fait ça ?"
+    },
+    {
+      "id": "zh-nuance-1",
+      "category": "nuance",
+      "sourceLanguage": "zh",
+      "targetLanguage": "fr",
+      "source": "这事儿没你想得那么简单。",
+      "previousLines": [],
+      "reference": "Ce n'est pas aussi simple que tu le penses."
+    },
+    {
+      "id": "zh-emotion-1",
+      "category": "émotion",
+      "sourceLanguage": "zh",
+      "targetLanguage": "fr",
+      "source": "我不是不相信你，我只是需要一点时间。",
+      "previousLines": [],
+      "reference": "Ce n'est pas que je ne te crois pas, j'ai juste besoin d'un peu de temps."
+    }
+  ]
+}

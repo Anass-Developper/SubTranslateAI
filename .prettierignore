@@ -1,0 +1,9 @@
+node_modules
+dist
+coverage
+release
+*.tsbuildinfo
+*.sqlite
+*.sqlite3
+*.db
+package-lock.json

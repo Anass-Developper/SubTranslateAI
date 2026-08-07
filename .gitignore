@@ -1,0 +1,47 @@
+# Dépendances et sorties de compilation
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+release/
+coverage/
+**/coverage/
+*.tsbuildinfo
+
+# Secrets et configuration locale
+.env
+.env.*
+**/.env
+**/.env.*
+!.env.example
+!**/.env.example
+
+# Données locales et journaux
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+*.sqlite3
+*.sqlite3-shm
+*.sqlite3-wal
+*.log
+logs/
+data/
+**/data/
+
+# Fichiers temporaires
+tmp/
+temp/
+*.tmp
+*.swp
+*.swo
+
+# Éditeurs et systèmes d'exploitation
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+!.vscode/extensions.json
+!.vscode/settings.json

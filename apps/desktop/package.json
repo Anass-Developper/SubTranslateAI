@@ -1,0 +1,76 @@
+{
+  "name": "@dual-subtitles/desktop",
+  "version": "1.1.0",
+  "description": "Application Windows locale pour les sous-titres bilingues FR / chinois.",
+  "author": "SubTranslateAI",
+  "private": true,
+  "type": "module",
+  "main": "dist/main.cjs",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "package:windows": "npm run build && node scripts/package-windows.mjs",
+    "smoke:renderer": "node scripts/smoke-renderer.mjs",
+    "test": "vitest run",
+    "lint": "eslint src scripts --max-warnings=0"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.11.1",
+    "electron-updater": "^6.8.9"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.1",
+    "electron": "43.3.0",
+    "electron-builder": "^26.15.3",
+    "esbuild": "^0.28.1",
+    "vitest": "^3.0.5"
+  },
+  "build": {
+    "appId": "fr.subtranslateai.desktop",
+    "productName": "SubTranslateAI",
+    "npmRebuild": false,
+    "asar": true,
+    "asarUnpack": [
+      "**/*.node"
+    ],
+    "files": [
+      "dist/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../extension/dist",
+        "to": "extension"
+      },
+      {
+        "from": "../../LICENSE",
+        "to": "LICENSE.txt"
+      }
+    ],
+    "directories": {
+      "output": "../../release/desktop"
+    },
+    "win": {
+      "icon": "build/icon-v2.png",
+      "target": [
+        "nsis"
+      ],
+      "artifactName": "SubTranslateAI-Setup-${version}.${ext}",
+      "electronUpdaterCompatibility": ">=2.16"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "allowElevation": false,
+      "createDesktopShortcut": "always",
+      "createStartMenuShortcut": true,
+      "deleteAppDataOnUninstall": false,
+      "runAfterFinish": true
+    },
+    "publish": [
+      {
+        "provider": "generic",
+        "url": "https://updates.invalid/subtranslateai"
+      }
+    ]
+  }
+}

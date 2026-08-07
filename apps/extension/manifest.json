@@ -1,0 +1,72 @@
+{
+  "manifest_version": 3,
+  "name": "Sous-titres doubles FR / 中文",
+  "description": "Affiche simultanément des sous-titres français et chinois via un serveur local.",
+  "version": "0.4.0",
+  "minimum_chrome_version": "111",
+  "permissions": ["storage", "activeTab", "scripting"],
+  "host_permissions": ["http://127.0.0.1/*", "http://localhost/*"],
+  "optional_host_permissions": ["https://*/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "Sous-titres doubles",
+    "default_popup": "popup.html"
+  },
+  "options_page": "options.html",
+  "commands": {
+    "toggle-dual-subtitles": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+Y",
+        "mac": "Command+Shift+Y"
+      },
+      "description": "Activer ou désactiver les sous-titres doubles"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.youtube.com/*",
+        "https://youtube.com/*",
+        "https://www.netflix.com/*",
+        "https://netflix.com/*",
+        "https://www.primevideo.com/*",
+        "https://primevideo.com/*",
+        "https://www.amazon.com/gp/video/*",
+        "https://www.amazon.fr/gp/video/*",
+        "https://www.canalplus.com/*",
+        "https://tv.apple.com/*",
+        "https://*.bilibili.com/*",
+        "https://bilibili.com/*",
+        "https://*.bilibili.tv/*",
+        "https://bilibili.tv/*"
+      ],
+      "js": ["page-bridge.js"],
+      "run_at": "document_start",
+      "world": "MAIN",
+      "all_frames": false
+    },
+    {
+      "matches": [
+        "https://www.youtube.com/*",
+        "https://youtube.com/*",
+        "https://www.netflix.com/*",
+        "https://netflix.com/*",
+        "https://www.primevideo.com/*",
+        "https://primevideo.com/*",
+        "https://www.amazon.com/gp/video/*",
+        "https://www.amazon.fr/gp/video/*",
+        "https://www.canalplus.com/*",
+        "https://tv.apple.com/*",
+        "https://*.bilibili.com/*",
+        "https://bilibili.com/*",
+        "https://*.bilibili.tv/*",
+        "https://bilibili.tv/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ]
+}

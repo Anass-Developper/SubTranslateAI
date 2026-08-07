@@ -1,0 +1,632 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'unsafe-inline'"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SubTranslateAI</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: Inter, system-ui, 'Segoe UI', sans-serif;
+        --bg: #07111f;
+        --panel: rgb(15 29 49 / 0.86);
+        --panel-soft: rgb(255 255 255 / 0.05);
+        --line: rgb(255 255 255 / 0.1);
+        --text: #f2f7ff;
+        --muted: #9cafc6;
+        --blue: #4cb4ff;
+        --green: #55d69c;
+        --amber: #f1c76d;
+        --danger: #ef7880;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        min-height: 100vh;
+        margin: 0;
+        background:
+          radial-gradient(circle at 15% -5%, rgb(32 113 184 / 0.3), transparent 40%),
+          radial-gradient(circle at 100% 100%, rgb(87 62 153 / 0.2), transparent 42%), var(--bg);
+        color: var(--text);
+      }
+      button,
+      select,
+      input {
+        font: inherit;
+      }
+      button {
+        cursor: pointer;
+      }
+      .app-shell {
+        display: grid;
+        grid-template-columns: 230px 1fr;
+        min-height: 100vh;
+      }
+      aside {
+        display: flex;
+        flex-direction: column;
+        gap: 28px;
+        padding: 30px 20px;
+        border-right: 1px solid var(--line);
+        background: rgb(4 12 23 / 0.72);
+      }
+      .brand {
+        padding: 0 10px;
+      }
+      .brand-mark {
+        display: grid;
+        place-items: center;
+        width: 42px;
+        height: 42px;
+        margin-bottom: 13px;
+        border-radius: 13px;
+        background: linear-gradient(135deg, #48b8ff, #7657e8);
+        box-shadow: 0 12px 32px rgb(49 139 220 / 0.28);
+        font-weight: 900;
+      }
+      .brand h1 {
+        margin: 0;
+        font-size: 19px;
+        letter-spacing: -0.03em;
+      }
+      .brand p {
+        margin: 5px 0 0;
+        color: var(--muted);
+        font-size: 12px;
+      }
+      nav {
+        display: grid;
+        gap: 8px;
+      }
+      nav button {
+        padding: 12px 14px;
+        border: 0;
+        border-radius: 11px;
+        background: transparent;
+        color: var(--muted);
+        text-align: left;
+        transition: 120ms ease;
+      }
+      nav button:hover,
+      nav button[data-active='true'] {
+        background: rgb(76 180 255 / 0.12);
+        color: var(--text);
+      }
+      .privacy {
+        margin-top: auto;
+        padding: 0 10px;
+        color: #70849d;
+        font-size: 11px;
+        line-height: 1.5;
+      }
+      main {
+        width: min(840px, 100%);
+        padding: 38px 42px 54px;
+      }
+      [data-page] {
+        outline: none;
+      }
+      .eyebrow {
+        margin: 0 0 8px;
+        color: var(--blue);
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+      h2 {
+        margin: 0;
+        font-size: clamp(30px, 4vw, 43px);
+        letter-spacing: -0.045em;
+      }
+      .lead {
+        max-width: 680px;
+        margin: 11px 0 26px;
+        color: var(--muted);
+        line-height: 1.55;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: 1.25fr 0.75fr;
+        gap: 16px;
+      }
+      .card {
+        padding: 20px;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: var(--panel);
+        box-shadow: 0 22px 55px rgb(0 0 0 / 0.18);
+        backdrop-filter: blur(16px);
+      }
+      .card h3 {
+        margin: 0 0 14px;
+        font-size: 17px;
+      }
+      .states {
+        display: grid;
+        gap: 9px;
+      }
+      .state {
+        display: flex;
+        align-items: center;
+        gap: 11px;
+        padding: 11px 13px;
+        border-radius: 11px;
+        background: var(--panel-soft);
+        color: #cbd7e6;
+      }
+      .state::before {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background: var(--danger);
+        box-shadow: 0 0 0 4px rgb(239 120 128 / 0.12);
+        content: '';
+      }
+      .state[data-ready='true']::before {
+        background: var(--green);
+        box-shadow: 0 0 0 4px rgb(85 214 156 / 0.12);
+      }
+      #global-message {
+        min-height: 22px;
+        margin: 15px 2px 0;
+        color: var(--amber);
+        font-size: 13px;
+        line-height: 1.45;
+      }
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 9px;
+        margin-top: 16px;
+      }
+      .button {
+        padding: 10px 14px;
+        border: 1px solid rgb(255 255 255 / 0.12);
+        border-radius: 10px;
+        background: #167ac0;
+        color: white;
+        font-weight: 750;
+        transition: 120ms ease;
+      }
+      .button:hover {
+        transform: translateY(-1px);
+        background: #2293df;
+      }
+      .button:disabled {
+        cursor: wait;
+        opacity: 0.55;
+        transform: none;
+      }
+      .button.secondary {
+        background: rgb(255 255 255 / 0.07);
+      }
+      .button.secondary:hover {
+        background: rgb(255 255 255 / 0.12);
+      }
+      .button.danger {
+        color: #ffc2c7;
+        background: rgb(203 57 69 / 0.15);
+      }
+      .button[data-complete='true'] {
+        background: rgb(48 151 106 / 0.28);
+        cursor: default;
+      }
+      .quick-steps {
+        display: grid;
+        gap: 13px;
+        margin-top: 18px;
+      }
+      .step {
+        display: grid;
+        grid-template-columns: 28px 1fr;
+        gap: 10px;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.45;
+      }
+      .step strong {
+        color: var(--text);
+      }
+      .step-number {
+        display: grid;
+        place-items: center;
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        background: rgb(76 180 255 / 0.13);
+        color: var(--blue);
+        font-weight: 800;
+      }
+      .update-box {
+        margin-top: 16px;
+      }
+      .update-box p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.45;
+      }
+      progress {
+        width: 100%;
+        height: 7px;
+        margin-top: 12px;
+        accent-color: var(--blue);
+      }
+      .form-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+      }
+      .field {
+        display: grid;
+        gap: 7px;
+      }
+      .field label,
+      .setting-title {
+        color: #dbe6f3;
+        font-size: 13px;
+        font-weight: 700;
+      }
+      .field small,
+      .setting-row small {
+        color: var(--muted);
+        line-height: 1.4;
+      }
+      select {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: #101f34;
+        color: var(--text);
+      }
+      .setting-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 20px;
+        padding: 14px 0;
+        border-bottom: 1px solid var(--line);
+      }
+      .setting-row:last-child {
+        border-bottom: 0;
+      }
+      .switch {
+        width: 42px;
+        height: 23px;
+        accent-color: var(--blue);
+      }
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 10px;
+        margin-top: 16px;
+      }
+      .stat {
+        padding: 14px;
+        border-radius: 13px;
+        background: var(--panel-soft);
+      }
+      .stat strong {
+        display: block;
+        font-size: 22px;
+      }
+      .stat span {
+        color: var(--muted);
+        font-size: 11px;
+      }
+      .help-list {
+        display: grid;
+        gap: 12px;
+      }
+      details {
+        padding: 15px 16px;
+        border: 1px solid var(--line);
+        border-radius: 13px;
+        background: var(--panel-soft);
+      }
+      summary {
+        cursor: pointer;
+        font-weight: 750;
+      }
+      details p,
+      details ol {
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.6;
+      }
+      code {
+        color: var(--amber);
+      }
+      .version {
+        display: inline-flex;
+        margin-left: 8px;
+        padding: 3px 7px;
+        border-radius: 999px;
+        background: rgb(255 255 255 / 0.07);
+        color: var(--muted);
+        font-size: 11px;
+        vertical-align: middle;
+      }
+      [hidden] {
+        display: none !important;
+      }
+      @media (max-width: 820px) {
+        .app-shell {
+          grid-template-columns: 1fr;
+        }
+        aside {
+          position: sticky;
+          top: 0;
+          z-index: 2;
+          flex-direction: row;
+          align-items: center;
+          padding: 12px 16px;
+        }
+        .brand-mark,
+        .brand p,
+        .privacy {
+          display: none;
+        }
+        nav {
+          display: flex;
+          margin-left: auto;
+        }
+        nav button {
+          padding: 9px 10px;
+        }
+        main {
+          padding: 26px 20px 44px;
+        }
+        .grid,
+        .form-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside>
+        <div class="brand">
+          <div class="brand-mark">译</div>
+          <h1>SubTranslateAI</h1>
+          <p>Français + 中文, en local</p>
+        </div>
+        <nav aria-label="Navigation principale">
+          <button data-page-target="home" data-active="true">Accueil</button>
+          <button data-page-target="settings">Réglages</button>
+          <button data-page-target="help">Aide</button>
+        </nav>
+        <p class="privacy">
+          Aucun dialogue envoyé vers une API distante. Le texte reste sur ce PC.
+        </p>
+      </aside>
+
+      <main>
+        <section data-page="home" tabindex="-1">
+          <p class="eyebrow">
+            Centre de démarrage <span class="version" id="app-version">v—</span>
+          </p>
+          <h2>Un clic, puis regarde ta série.</h2>
+          <p class="lead">
+            L’application installe le moteur local, prépare Hy‑MT2‑7B et te guide pour activer les
+            sous-titres dans Chrome ou Edge.
+          </p>
+
+          <div class="grid">
+            <section class="card" aria-label="État du logiciel">
+              <h3>État de l’installation</h3>
+              <div class="states">
+                <div class="state" id="server-state" data-ready="false">
+                  <span>Vérification du serveur…</span>
+                </div>
+                <div class="state" id="ollama-state" data-ready="false">
+                  <span>Vérification d’Ollama…</span>
+                </div>
+                <div class="state" id="model-state" data-ready="false">
+                  <span>Vérification de Hy‑MT2‑7B…</span>
+                </div>
+              </div>
+              <p id="global-message" aria-live="polite">Initialisation…</p>
+              <div class="actions">
+                <button class="button" id="setup-everything">Tout installer automatiquement</button>
+                <button class="button secondary" id="refresh">Actualiser</button>
+              </div>
+            </section>
+
+            <section class="card">
+              <h3>Activer l’extension</h3>
+              <div class="quick-steps">
+                <div class="step">
+                  <span class="step-number">1</span>
+                  <div>
+                    <strong>Ouvre le dossier</strong><br />Il contient l’extension prête à charger.
+                  </div>
+                </div>
+                <div class="step">
+                  <span class="step-number">2</span>
+                  <div><strong>Ouvre les extensions</strong><br />Active le mode développeur.</div>
+                </div>
+                <div class="step">
+                  <span class="step-number">3</span>
+                  <div>
+                    <strong>Charge le dossier</strong><br />Choisis « extension non empaquetée ».
+                  </div>
+                </div>
+              </div>
+              <div class="actions">
+                <button class="button secondary" id="open-extension">Ouvrir le dossier</button>
+                <button class="button secondary" data-browser="chrome">Chrome</button>
+                <button class="button secondary" data-browser="edge">Edge</button>
+              </div>
+            </section>
+          </div>
+
+          <section class="card update-box">
+            <h3>Mises à jour</h3>
+            <p id="update-message">Vérification du canal de mise à jour…</p>
+            <progress id="update-progress" max="100" value="0" hidden></progress>
+            <div class="actions">
+              <button class="button secondary" id="check-update">Rechercher</button>
+              <button class="button" id="install-update" hidden>Redémarrer et installer</button>
+            </div>
+          </section>
+        </section>
+
+        <section data-page="settings" tabindex="-1" hidden>
+          <p class="eyebrow">Panneau de contrôle</p>
+          <h2>Les réglages importants.</h2>
+          <p class="lead">Des choix simples et sûrs. Le modèle reste verrouillé sur Hy‑MT2‑7B.</p>
+          <form id="settings-form">
+            <section class="card">
+              <h3>Application</h3>
+              <div class="setting-row">
+                <div>
+                  <div class="setting-title">Mises à jour automatiques</div>
+                  <small>Recherche et télécharge les nouvelles versions publiées.</small>
+                </div>
+                <input class="switch" type="checkbox" id="automatic-updates" />
+              </div>
+              <div class="setting-row">
+                <div>
+                  <div class="setting-title">Démarrer avec Windows</div>
+                  <small
+                    >L’application démarre discrètement pour que les sous-titres soient
+                    prêts.</small
+                  >
+                </div>
+                <input class="switch" type="checkbox" id="launch-at-login" />
+              </div>
+            </section>
+
+            <section class="card" style="margin-top: 16px">
+              <h3>Traduction locale</h3>
+              <div class="form-grid">
+                <div class="field">
+                  <label for="request-timeout">Temps maximal par ligne</label>
+                  <select id="request-timeout">
+                    <option value="15000">15 s — très rapide</option>
+                    <option value="20000">20 s — GPU rapide</option>
+                    <option value="45000">45 s — recommandé</option>
+                    <option value="90000">90 s — GPU plus lent</option>
+                    <option value="120000">120 s — maximum</option>
+                  </select>
+                  <small>Augmente si certaines traductions expirent.</small>
+                </div>
+                <div class="field">
+                  <label for="max-retries">Nouvelles tentatives</label>
+                  <select id="max-retries">
+                    <option value="0">0 — latence minimale</option>
+                    <option value="1">1 — recommandé</option>
+                    <option value="2">2 — connexion instable</option>
+                    <option value="3">3 — très tolérant</option>
+                  </select>
+                  <small>Réessaie seulement lorsqu’Ollama répond mal.</small>
+                </div>
+                <div class="field">
+                  <label for="memory-cache">Cache rapide</label>
+                  <select id="memory-cache">
+                    <option value="500">500 lignes</option>
+                    <option value="1000">1 000 lignes — recommandé</option>
+                    <option value="5000">5 000 lignes</option>
+                    <option value="10000">10 000 lignes</option>
+                  </select>
+                  <small>Évite de retraduire les phrases déjà rencontrées.</small>
+                </div>
+              </div>
+              <div class="actions">
+                <button class="button" type="submit" id="save-settings">Enregistrer</button>
+                <button class="button danger" type="button" id="clear-cache">Vider le cache</button>
+              </div>
+            </section>
+          </form>
+
+          <section class="card" style="margin-top: 16px">
+            <h3>Utilisation</h3>
+            <div class="stats">
+              <div class="stat">
+                <strong id="stat-translated">—</strong><span>lignes traduites</span>
+              </div>
+              <div class="stat"><strong id="stat-cache">—</strong><span>lignes en cache</span></div>
+              <div class="stat"><strong id="stat-hit-rate">—</strong><span>réutilisées</span></div>
+              <div class="stat"><strong id="stat-errors">—</strong><span>erreurs</span></div>
+            </div>
+          </section>
+        </section>
+
+        <section data-page="help" tabindex="-1" hidden>
+          <p class="eyebrow">Mode d’emploi</p>
+          <h2>Tout ce qu’il faut savoir.</h2>
+          <p class="lead">
+            Les réponses courtes aux problèmes les plus fréquents, directement dans le logiciel.
+          </p>
+          <div class="help-list">
+            <details open>
+              <summary>Première installation de l’extension</summary>
+              <ol>
+                <li>Clique sur « Ouvrir le dossier ».</li>
+                <li>Ouvre <code>chrome://extensions</code> ou <code>edge://extensions</code>.</li>
+                <li>Active le mode développeur.</li>
+                <li>
+                  Clique sur « Charger l’extension non empaquetée » et choisis le dossier ouvert.
+                </li>
+              </ol>
+              <div class="actions">
+                <button class="button secondary" data-open-extension>Ouvrir le dossier</button
+                ><button class="button secondary" data-browser="chrome">Ouvrir Chrome</button
+                ><button class="button secondary" data-browser="edge">Ouvrir Edge</button>
+              </div>
+            </details>
+            <details>
+              <summary>Comment utiliser les sous-titres ?</summary>
+              <p>
+                Laisse SubTranslateAI ouvert, démarre une vidéo et active une piste de sous-titres
+                textuelle dans le lecteur. L’extension détecte la ligne et affiche le français ainsi
+                que le chinois.
+              </p>
+            </details>
+            <details>
+              <summary>Pourquoi la première phrase est plus lente ?</summary>
+              <p>
+                Hy‑MT2‑7B doit être chargé dans la mémoire de la carte graphique. Les phrases
+                suivantes sont généralement beaucoup plus rapides, et les traductions déjà vues sont
+                récupérées depuis le cache.
+              </p>
+            </details>
+            <details>
+              <summary>Ollama ou le modèle ne démarre pas</summary>
+              <p>
+                Utilise d’abord « Tout installer automatiquement ». Vérifie ensuite que Windows et
+                les pilotes graphiques sont à jour. Le bouton ci-dessous ouvre aussi la page
+                officielle d’Ollama.
+              </p>
+              <div class="actions">
+                <button class="button secondary" id="open-ollama-help">
+                  Page officielle Ollama
+                </button>
+              </div>
+            </details>
+            <details>
+              <summary>Demander de l’aide</summary>
+              <p>
+                Copie le diagnostic puis envoie-le au développeur. Il contient les versions et états
+                techniques, mais aucun historique de navigation ni texte de sous-titre.
+              </p>
+              <div class="actions">
+                <button class="button secondary" id="copy-diagnostics">Copier le diagnostic</button>
+              </div>
+            </details>
+          </div>
+        </section>
+      </main>
+    </div>
+    <script src="renderer.js"></script>
+  </body>
+</html>
