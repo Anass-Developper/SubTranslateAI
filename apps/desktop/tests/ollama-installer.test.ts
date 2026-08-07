@@ -20,21 +20,32 @@ describe('downloadPercent', () => {
   });
 
   it.runIf(process.platform === 'win32')(
-    'produit une commande PowerShell valide avec un chemin séparé',
+    'produit une commande PowerShell valide avec un chemin Unicode séparé',
     async () => {
-      const executable = process.env.ComSpec ?? 'C:\\Windows\\System32\\cmd.exe';
+      const installerPath = 'C:\\Users\\测试 Profile\\OllamaSetup.exe';
+      const script = [
+        'function Get-AuthenticodeSignature {',
+        '  param([string]$LiteralPath)',
+        "  if ($LiteralPath -ne $env:SUBTRANSLATE_EXPECTED_INSTALLER) { throw 'Unexpected installer path.' }",
+        "  [pscustomobject]@{ Status = 'Valid'; SignerCertificate = [pscustomobject]@{ Subject = 'CN=Ollama Inc.' } }",
+        '}',
+        authenticodeVerificationScript(),
+      ].join('\n');
       const { stdout } = await execFileAsync(
         'powershell.exe',
-        ['-NoProfile', '-NonInteractive', '-Command', authenticodeVerificationScript()],
+        ['-NoProfile', '-NonInteractive', '-Command', script],
         {
           windowsHide: true,
           timeout: 60_000,
-          env: { ...process.env, SUBTRANSLATE_OLLAMA_INSTALLER: executable },
+          env: {
+            ...process.env,
+            SUBTRANSLATE_OLLAMA_INSTALLER: installerPath,
+            SUBTRANSLATE_EXPECTED_INSTALLER: installerPath,
+          },
         },
       );
       const signature = JSON.parse(stdout.trim()) as { Status?: unknown; Subject?: unknown };
-      expect(typeof signature.Status).toBe('string');
-      expect(typeof signature.Subject).toBe('string');
+      expect(signature).toEqual({ Status: 'Valid', Subject: 'CN=Ollama Inc.' });
     },
     60_000,
   );
