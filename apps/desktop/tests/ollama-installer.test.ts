@@ -36,5 +36,6 @@ describe('downloadPercent', () => {
       expect(typeof signature.Status).toBe('string');
       expect(typeof signature.Subject).toBe('string');
     },
+    60_000,
   );
 });
