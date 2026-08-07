@@ -10,6 +10,20 @@ const execFileAsync = promisify(execFile);
 
 export const OLLAMA_INSTALLER_URL = 'https://ollama.com/download/OllamaSetup.exe';
 
+export function authenticodeVerificationScript(): string {
+  return [
+    "$ErrorActionPreference = 'Stop'",
+    '$installerPath = $env:SUBTRANSLATE_OLLAMA_INSTALLER',
+    "if ([string]::IsNullOrWhiteSpace($installerPath)) { throw 'Installer path is missing.' }",
+    '$signature = Get-AuthenticodeSignature -LiteralPath $installerPath',
+    "$subject = if ($signature.SignerCertificate) { $signature.SignerCertificate.Subject } else { '' }",
+    '[pscustomobject]@{',
+    '  Status = $signature.Status.ToString()',
+    '  Subject = $subject',
+    '} | ConvertTo-Json -Compress',
+  ].join('\n');
+}
+
 export function downloadPercent(receivedBytes: number, totalBytes: number | null): number | null {
   if (totalBytes === null || totalBytes <= 0) return null;
   return Math.max(0, Math.min(100, (receivedBytes / totalBytes) * 100));
@@ -45,18 +59,29 @@ export async function downloadOllamaInstaller(
 }
 
 export async function verifyOllamaInstaller(destination: string): Promise<void> {
-  const script = [
-    '$signature = Get-AuthenticodeSignature -LiteralPath $args[0]',
-    '[pscustomobject]@{',
-    'Status = $signature.Status.ToString()',
-    "Subject = if ($signature.SignerCertificate) { $signature.SignerCertificate.Subject } else { '' }",
-    '} | ConvertTo-Json -Compress',
-  ].join('; ');
-  const { stdout } = await execFileAsync(
-    'powershell.exe',
-    ['-NoProfile', '-NonInteractive', '-Command', script, destination],
-    { windowsHide: true, timeout: 60_000 },
-  );
+  let stdout: string;
+  try {
+    ({ stdout } = await execFileAsync(
+      'powershell.exe',
+      ['-NoProfile', '-NonInteractive', '-Command', authenticodeVerificationScript()],
+      {
+        windowsHide: true,
+        timeout: 60_000,
+        env: { ...process.env, SUBTRANSLATE_OLLAMA_INSTALLER: destination },
+      },
+    ));
+  } catch (error) {
+    const details =
+      typeof error === 'object' && error !== null && 'stderr' in error
+        ? String(error.stderr).trim()
+        : error instanceof Error
+          ? error.message
+          : String(error);
+    throw new Error(
+      `La vérification PowerShell de l’installateur Ollama a échoué${details ? ` : ${details}` : '.'}`,
+      { cause: error },
+    );
+  }
   const signature = JSON.parse(stdout.trim()) as { Status?: unknown; Subject?: unknown };
   if (
     signature.Status !== 'Valid' ||

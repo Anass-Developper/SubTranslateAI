@@ -278,6 +278,12 @@
         color: var(--muted);
         line-height: 1.4;
       }
+      .form-message {
+        min-height: 20px;
+        margin: 12px 2px 0;
+        color: var(--amber);
+        font-size: 13px;
+      }
       select {
         width: 100%;
         padding: 10px 12px;
@@ -545,6 +551,7 @@
                 <button class="button" type="submit" id="save-settings">Enregistrer</button>
                 <button class="button danger" type="button" id="clear-cache">Vider le cache</button>
               </div>
+              <p class="form-message" id="settings-message" aria-live="polite"></p>
             </section>
           </form>
 

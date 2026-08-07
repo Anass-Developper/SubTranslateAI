@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { cp, rm } from 'node:fs/promises';
+import { cp, readFile, rm, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 
 import { DEFAULT_SERVER_SETTINGS, type ServerSettings, type Stats } from '@dual-subtitles/shared';
@@ -33,12 +33,31 @@ const SERVER_URL = 'http://127.0.0.1:47831';
 const currentDirectory = __dirname;
 const hiddenLaunch = process.argv.includes('--hidden');
 const smokeTest = process.argv.includes('--smoke-test');
+const smokePort = process.env.SUBTRANSLATE_SMOKE_PORT;
+const smokeDataDirectory = process.env.SUBTRANSLATE_SMOKE_DATA_DIR;
+
+if (smokeTest && smokePort && /^\d{2,5}$/u.test(smokePort)) {
+  app.commandLine.appendSwitch('remote-debugging-port', smokePort);
+}
+if (smokeTest && smokeDataDirectory) {
+  app.setPath('userData', smokeDataDirectory);
+}
+
+type SetupStage = 'download' | 'signature' | 'install' | 'start' | 'model';
+
+interface SetupFailure {
+  occurredAt: string;
+  stage: SetupStage;
+  message: string;
+  technicalDetails: string;
+}
 
 let mainWindow: BrowserWindow | null = null;
 let server: FastifyInstance | null = null;
 let serverReady = false;
 let serverError: string | null = null;
 let serverTechnicalError: string | null = null;
+let lastSetupError: SetupFailure | null = null;
 let setupBusy = false;
 let quitting = false;
 let preferences: AppPreferences = { ...DEFAULT_APP_PREFERENCES };
@@ -54,6 +73,7 @@ if (!app.requestSingleInstanceLock()) {
     .whenReady()
     .then(async () => {
       preferences = await readPreferences(preferencesPath());
+      lastSetupError = await readLastSetupError();
       applyLoginPreference(preferences.launchAtLogin);
       registerIpcHandlers();
       await syncExtensionFiles();
@@ -203,6 +223,7 @@ async function getStatus(): Promise<DesktopStatus> {
 async function setupEverything(): Promise<InstallResult> {
   if (setupBusy) return { ok: false, error: 'Une installation est déjà en cours.' };
   setupBusy = true;
+  let stage: SetupStage = 'download';
   try {
     let executable = findOllamaExecutable();
     if (!executable) {
@@ -216,8 +237,10 @@ async function setupEverything(): Promise<InstallResult> {
               : `Téléchargement d’Ollama : ${Math.round(percent)} %`,
           );
         });
+        stage = 'signature';
         sendProgress('Vérification de la signature numérique d’Ollama…');
         await verifyOllamaInstaller(installerPath);
+        stage = 'install';
         sendProgress('Installation d’Ollama dans ton profil Windows…');
         await runOllamaInstaller(installerPath);
       } finally {
@@ -227,12 +250,25 @@ async function setupEverything(): Promise<InstallResult> {
       if (!executable)
         throw new Error('Ollama a été installé, mais son exécutable reste introuvable.');
     }
+    stage = 'start';
     await ensureOllamaRunning(true);
+    stage = 'model';
     await pullModel(executable);
+    lastSetupError = null;
+    await rm(setupErrorPath(), { force: true }).catch(() => undefined);
     sendProgress('Installation terminée. SubTranslateAI est prêt.');
     return { ok: true };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
+    lastSetupError = {
+      occurredAt: new Date().toISOString(),
+      stage,
+      message,
+      technicalDetails: error instanceof Error ? (error.stack ?? error.message) : String(error),
+    };
+    await writeFile(setupErrorPath(), `${JSON.stringify(lastSetupError, null, 2)}\n`, 'utf8').catch(
+      () => undefined,
+    );
     sendProgress(message);
     return { ok: false, error: message };
   } finally {
@@ -464,6 +500,7 @@ async function copyDiagnostics(): Promise<void> {
         electron: process.versions.electron,
         status,
         serverTechnicalError,
+        lastSetupError,
         update: updateStatus(),
         settings: controls.serverSettings,
         stats: controls.stats,
@@ -511,6 +548,27 @@ function applyLoginPreference(enabled: boolean): void {
 
 function preferencesPath(): string {
   return join(app.getPath('userData'), 'preferences.json');
+}
+
+function setupErrorPath(): string {
+  return join(app.getPath('userData'), 'last-setup-error.json');
+}
+
+async function readLastSetupError(): Promise<SetupFailure | null> {
+  try {
+    const value = JSON.parse(await readFile(setupErrorPath(), 'utf8')) as Partial<SetupFailure>;
+    if (
+      typeof value.occurredAt !== 'string' ||
+      !['download', 'signature', 'install', 'start', 'model'].includes(value.stage ?? '') ||
+      typeof value.message !== 'string' ||
+      typeof value.technicalDetails !== 'string'
+    ) {
+      return null;
+    }
+    return value as SetupFailure;
+  } catch {
+    return null;
+  }
 }
 
 function extensionPath(): string {

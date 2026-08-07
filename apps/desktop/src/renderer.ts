@@ -9,6 +9,8 @@ const installUpdateButton = requiredButton('install-update');
 const saveSettingsButton = requiredButton('save-settings');
 const clearCacheButton = requiredButton('clear-cache');
 const settingsForm = requiredForm('settings-form');
+const settingsMessage = requiredElement('settings-message');
+let settingsDirty = false;
 
 setupButton.addEventListener('click', () => void setupEverything());
 extensionButton.addEventListener('click', () => void window.subTranslate.openExtensionFolder());
@@ -17,6 +19,10 @@ checkUpdateButton.addEventListener('click', () => void checkForUpdates());
 installUpdateButton.addEventListener('click', () => void window.subTranslate.installUpdate());
 clearCacheButton.addEventListener('click', () => void clearCache());
 settingsForm.addEventListener('submit', (event) => void saveSettings(event));
+settingsForm.addEventListener('change', () => {
+  settingsDirty = true;
+  settingsMessage.textContent = 'Modifications non enregistrées.';
+});
 
 for (const button of document.querySelectorAll<HTMLButtonElement>('[data-page-target]')) {
   button.addEventListener('click', () => selectPage(button.dataset.pageTarget ?? 'home'));
@@ -120,11 +126,13 @@ async function refreshControlPanel(): Promise<void> {
 }
 
 function updateControlPanel(state: ControlPanelState): void {
-  requiredCheckbox('automatic-updates').checked = state.preferences.automaticUpdates;
-  requiredCheckbox('launch-at-login').checked = state.preferences.launchAtLogin;
-  requiredSelect('request-timeout').value = String(state.serverSettings.requestTimeoutMs);
-  requiredSelect('max-retries').value = String(state.serverSettings.maxRetries);
-  requiredSelect('memory-cache').value = String(state.serverSettings.memoryCacheEntries);
+  if (!settingsDirty) {
+    requiredCheckbox('automatic-updates').checked = state.preferences.automaticUpdates;
+    requiredCheckbox('launch-at-login').checked = state.preferences.launchAtLogin;
+    requiredSelect('request-timeout').value = String(state.serverSettings.requestTimeoutMs);
+    requiredSelect('max-retries').value = String(state.serverSettings.maxRetries);
+    requiredSelect('memory-cache').value = String(state.serverSettings.memoryCacheEntries);
+  }
   const stats = state.stats;
   requiredElement('stat-translated').textContent = String(stats?.translatedLines ?? '—');
   requiredElement('stat-cache').textContent = String(stats?.cacheEntries ?? '—');
@@ -145,10 +153,11 @@ async function saveSettings(event: SubmitEvent): Promise<void> {
       maxRetries: Number(requiredSelect('max-retries').value),
       memoryCacheEntries: Number(requiredSelect('memory-cache').value),
     });
+    settingsDirty = false;
     updateControlPanel(state);
-    message.textContent = 'Réglages enregistrés.';
+    settingsMessage.textContent = 'Réglages enregistrés.';
   } catch (error) {
-    message.textContent = errorMessage(error);
+    settingsMessage.textContent = errorMessage(error);
   } finally {
     saveSettingsButton.disabled = false;
   }

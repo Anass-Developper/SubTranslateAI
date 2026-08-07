@@ -1,6 +1,13 @@
 const port = Number(process.argv[2] ?? 9223);
-const pages = await fetch(`http://127.0.0.1:${port}/json/list`).then((response) => response.json());
-const page = pages.find((candidate) => candidate.type === 'page');
+const deadline = Date.now() + 20_000;
+let page;
+while (!page && Date.now() < deadline) {
+  const pages = await fetch(`http://127.0.0.1:${port}/json/list`).then((response) =>
+    response.json(),
+  );
+  page = pages.find((candidate) => candidate.type === 'page');
+  if (!page) await new Promise((resolvePromise) => setTimeout(resolvePromise, 250));
+}
 if (!page?.webSocketDebuggerUrl) throw new Error('Fenêtre Electron introuvable via CDP.');
 
 const socket = new WebSocket(page.webSocketDebuggerUrl);
@@ -34,6 +41,18 @@ async function evaluate(expression) {
 }
 
 const controlPanel = await evaluate('window.subTranslate.getControlPanel()');
+await evaluate('document.querySelector(`[data-page-target="settings"]`)?.click()');
+const selectedTimeout = await evaluate(`(() => {
+  const select = document.querySelector('#request-timeout');
+  select.value = '90000';
+  select.dispatchEvent(new Event('change', { bubbles: true }));
+  return select.value;
+})()`);
+await new Promise((resolvePromise) => setTimeout(resolvePromise, 21_000));
+const selectedTimeoutAfterRefresh = await evaluate(
+  'document.querySelector("#request-timeout")?.value',
+);
+const settingsMessage = await evaluate('document.querySelector("#settings-message")?.textContent');
 const sameSettings = JSON.stringify({
   automaticUpdates: true,
   launchAtLogin: true,
@@ -41,12 +60,22 @@ const sameSettings = JSON.stringify({
   maxRetries: 1,
   memoryCacheEntries: 1_000,
 });
-const savedControlPanel = await evaluate(`window.subTranslate.saveControlPanel(${sameSettings})`);
+let savedControlPanel = null;
+let settingsSaveError = null;
+try {
+  savedControlPanel = await evaluate(`window.subTranslate.saveControlPanel(${sameSettings})`);
+} catch (error) {
+  settingsSaveError = error instanceof Error ? error.message : String(error);
+}
 const output = {
   heading: await evaluate('document.querySelector("h2")?.textContent'),
   status: await evaluate('window.subTranslate.getStatus()'),
   controlPanel,
-  settingsSaved: savedControlPanel.serverSettings,
+  selectedTimeout,
+  selectedTimeoutAfterRefresh,
+  settingsMessage,
+  settingsSaved: savedControlPanel?.serverSettings ?? null,
+  settingsSaveError,
   update: await evaluate('window.subTranslate.getUpdateStatus()'),
 };
 socket.close();
