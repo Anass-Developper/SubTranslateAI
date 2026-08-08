@@ -95,6 +95,15 @@ describe("pipeline de sous-titres", () => {
     expect(onTranslation).toHaveBeenCalledWith(
       expect.objectContaining({ fr: "Nouveau", zh: "新" }),
     );
+    expect(pipeline.getDiagnostics()).toMatchObject({
+      observedCues: 2,
+      requestsStarted: 2,
+      completedTranslations: 1,
+      cancelledRequests: 1,
+      failedRequests: 0,
+      requestInFlight: false,
+      lastOutcome: "translated",
+    });
     pipeline.dispose();
   });
 
@@ -131,6 +140,12 @@ describe("pipeline de sous-titres", () => {
       cached: true,
     });
     expect(onTranslation).toHaveBeenCalledOnce();
+    expect(pipeline.getDiagnostics()).toMatchObject({
+      preloadedTranslations: 1,
+      completedTranslations: 1,
+      cancelledRequests: 1,
+      lastOutcome: "preloaded",
+    });
 
     const liveRequest = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body)) as { id: string };
     resolveLive?.(translationResponse({ id: liveRequest.id, text: "Hello" }, "Tardif", "迟到"));

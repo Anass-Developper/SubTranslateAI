@@ -67,6 +67,7 @@ try {
 } catch (error) {
   settingsSaveError = error instanceof Error ? error.message : String(error);
 }
+await evaluate('window.subTranslate.copyDiagnostics()');
 const output = {
   heading: await evaluate('document.querySelector("h2")?.textContent'),
   status: await evaluate('window.subTranslate.getStatus()'),
@@ -76,6 +77,7 @@ const output = {
   settingsMessage,
   settingsSaved: savedControlPanel?.serverSettings ?? null,
   settingsSaveError,
+  diagnosticCopied: true,
   update: await evaluate('window.subTranslate.getUpdateStatus()'),
 };
 socket.close();

@@ -101,6 +101,42 @@ export const ServerSettingsSchema = z
 
 export const UpdateServerSettingsSchema = ServerSettingsSchema.partial().strict();
 
+export const DiagnosticIncidentSchema = z
+  .object({
+    occurredAt: z.string().datetime(),
+    kind: z.enum(['error', 'cancellation']),
+    operation: z.enum(['single', 'batch']),
+    code: z.string().min(1).max(80),
+    message: z.string().min(1).max(500),
+    retryable: z.boolean(),
+    cueCount: z.number().int().positive(),
+    durationMs: z.number().int().nonnegative(),
+  })
+  .strict();
+
+export const RuntimeDiagnosticsSchema = z
+  .object({
+    sessionStartedAt: z.string().datetime(),
+    translatedLines: z.number().int().nonnegative(),
+    cacheHits: z.number().int().nonnegative(),
+    cacheMisses: z.number().int().nonnegative(),
+    apiRequests: z.number().int().nonnegative(),
+    activeRequests: z.number().int().nonnegative(),
+    peakConcurrentRequests: z.number().int().nonnegative(),
+    completedRequests: z.number().int().nonnegative(),
+    successfulRequests: z.number().int().nonnegative(),
+    failedRequests: z.number().int().nonnegative(),
+    cancelledRequests: z.number().int().nonnegative(),
+    affectedFailedCues: z.number().int().nonnegative(),
+    affectedCancelledCues: z.number().int().nonnegative(),
+    averageRequestDurationMs: z.number().int().nonnegative(),
+    lastRequestDurationMs: z.number().int().nonnegative().nullable(),
+    maxRequestDurationMs: z.number().int().nonnegative(),
+    errorCounts: z.record(z.string(), z.number().int().nonnegative()),
+    recentIncidents: z.array(DiagnosticIncidentSchema).max(20),
+  })
+  .strict();
+
 export const StatsSchema = z
   .object({
     translatedLines: z.number().int().nonnegative(),
@@ -108,9 +144,11 @@ export const StatsSchema = z
     cacheMisses: z.number().int().nonnegative(),
     apiRequests: z.number().int().nonnegative(),
     errors: z.number().int().nonnegative(),
+    cancelledLines: z.number().int().nonnegative(),
     cacheEntries: z.number().int().nonnegative(),
     uptimeSeconds: z.number().int().nonnegative(),
     cacheHitRate: z.number().min(0).max(1),
+    runtime: RuntimeDiagnosticsSchema,
   })
   .strict();
 
@@ -155,6 +193,8 @@ export type ProviderBatchTranslationResponse = z.infer<
 >;
 export type ServerSettings = z.infer<typeof ServerSettingsSchema>;
 export type UpdateServerSettings = z.infer<typeof UpdateServerSettingsSchema>;
+export type DiagnosticIncident = z.infer<typeof DiagnosticIncidentSchema>;
+export type RuntimeDiagnostics = z.infer<typeof RuntimeDiagnosticsSchema>;
 export type Stats = z.infer<typeof StatsSchema>;
 export type HealthResponse = z.infer<typeof HealthResponseSchema>;
 export type ClearCacheResponse = z.infer<typeof ClearCacheResponseSchema>;

@@ -11,6 +11,21 @@ export interface SubtitlePipelineEvents {
   onServerState: (reachable: boolean) => void;
 }
 
+export interface SubtitlePipelineDiagnostics {
+  readonly currentTextPresent: boolean;
+  readonly requestInFlight: boolean;
+  readonly currentRequestAgeMs: number | null;
+  readonly observedCues: number;
+  readonly requestsStarted: number;
+  readonly completedTranslations: number;
+  readonly preloadedTranslations: number;
+  readonly cancelledRequests: number;
+  readonly failedRequests: number;
+  readonly lastRequestDurationMs: number | null;
+  readonly lastOutcome: "none" | "translated" | "preloaded" | "cancelled" | "error";
+  readonly lastErrorKind: string | null;
+}
+
 export class SubtitlePipeline {
   private settings: ExtensionSettings;
   private client: ServerClient;
@@ -21,7 +36,17 @@ export class SubtitlePipeline {
   private sequence = 0;
   private cueGeneration = 0;
   private requestController: AbortController | null = null;
+  private requestStartedAt: number | null = null;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private observedCues = 0;
+  private requestsStarted = 0;
+  private completedTranslations = 0;
+  private preloadedTranslations = 0;
+  private cancelledRequests = 0;
+  private failedRequests = 0;
+  private lastRequestDurationMs: number | null = null;
+  private lastOutcome: SubtitlePipelineDiagnostics["lastOutcome"] = "none";
+  private lastErrorKind: string | null = null;
 
   constructor(
     settings: ExtensionSettings,
@@ -63,6 +88,7 @@ export class SubtitlePipeline {
     }
 
     this.cueGeneration += 1;
+    this.observedCues += 1;
     const generation = this.cueGeneration;
     this.lastObservedText = text;
     this.currentText = text;
@@ -80,6 +106,10 @@ export class SubtitlePipeline {
     this.cancelRequest();
     this.grouper.clear();
     this.rememberLine(text);
+    this.preloadedTranslations += 1;
+    this.completedTranslations += 1;
+    this.lastOutcome = "preloaded";
+    this.lastErrorKind = null;
     this.events.onServerState(true);
     this.events.onTranslation(response);
   }
@@ -102,11 +132,33 @@ export class SubtitlePipeline {
     }
   }
 
+  getDiagnostics(): SubtitlePipelineDiagnostics {
+    return {
+      currentTextPresent: this.currentText.length > 0,
+      requestInFlight: this.requestController !== null,
+      currentRequestAgeMs:
+        this.requestController && this.requestStartedAt !== null
+          ? Math.max(0, Date.now() - this.requestStartedAt)
+          : null,
+      observedCues: this.observedCues,
+      requestsStarted: this.requestsStarted,
+      completedTranslations: this.completedTranslations,
+      preloadedTranslations: this.preloadedTranslations,
+      cancelledRequests: this.cancelledRequests,
+      failedRequests: this.failedRequests,
+      lastRequestDurationMs: this.lastRequestDurationMs,
+      lastOutcome: this.lastOutcome,
+      lastErrorKind: this.lastErrorKind,
+    };
+  }
+
   private async translate(text: string, generation: number): Promise<void> {
     if (!text || generation !== this.cueGeneration || text !== this.currentText) return;
 
     const controller = new AbortController();
     this.requestController = controller;
+    this.requestStartedAt = Date.now();
+    this.requestsStarted += 1;
     const id = createSubtitleId(++this.sequence);
     const previousLines = this.previousLines.slice(-this.settings.contextLineCount);
 
@@ -128,15 +180,25 @@ export class SubtitlePipeline {
       ) {
         return;
       }
+      this.lastRequestDurationMs = this.elapsedCurrentRequest();
       this.requestController = null;
+      this.requestStartedAt = null;
       this.rememberLine(text);
+      this.completedTranslations += 1;
+      this.lastOutcome = "translated";
+      this.lastErrorKind = null;
       this.events.onServerState(true);
       this.events.onTranslation(response);
     } catch (error) {
       if (controller.signal.aborted) {
         return;
       }
+      this.lastRequestDurationMs = this.elapsedCurrentRequest();
       this.requestController = null;
+      this.requestStartedAt = null;
+      this.failedRequests += 1;
+      this.lastOutcome = "error";
+      this.lastErrorKind = error instanceof ServerClientError ? error.kind : "unknown";
       const unavailable =
         !(error instanceof ServerClientError) ||
         error.kind === "network" ||
@@ -175,8 +237,19 @@ export class SubtitlePipeline {
   }
 
   private cancelRequest(): void {
-    this.requestController?.abort();
+    if (this.requestController) {
+      this.lastRequestDurationMs = this.elapsedCurrentRequest();
+      this.cancelledRequests += 1;
+      this.lastOutcome = "cancelled";
+      this.lastErrorKind = "aborted";
+      this.requestController.abort();
+    }
     this.requestController = null;
+    this.requestStartedAt = null;
+  }
+
+  private elapsedCurrentRequest(): number | null {
+    return this.requestStartedAt === null ? null : Math.max(0, Date.now() - this.requestStartedAt);
   }
 
   private rememberLine(text: string): void {

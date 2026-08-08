@@ -171,11 +171,28 @@ export class SubtitlePreloadCoordinator {
     return this.resolveCurrentTranslation(true);
   }
 
-  getStatus(): SubtitlePreloadStatus & { enabled: boolean; lastError: string | null } {
+  getStatus(): SubtitlePreloadStatus & {
+    enabled: boolean;
+    lastError: string | null;
+    playbackTimeMs: number | null;
+    currentCueId: string | null;
+    currentCueStartMs: number | null;
+    currentCueEndMs: number | null;
+    cueOffsetMs: number | null;
+  } {
+    const playbackTimeMs = this.playbackVideo?.isConnected ? this.currentTimeMs() : null;
     return {
       enabled: this.settings.preloadEnabled,
       ...this.manager.getStatus(),
       lastError: this.lastPreloadError,
+      playbackTimeMs,
+      currentCueId: this.currentCue?.id ?? null,
+      currentCueStartMs: this.currentCue?.startMs ?? null,
+      currentCueEndMs: this.currentCue?.endMs ?? null,
+      cueOffsetMs:
+        playbackTimeMs !== null && this.currentCue
+          ? Math.round(playbackTimeMs - this.currentCue.startMs)
+          : null,
     };
   }
 

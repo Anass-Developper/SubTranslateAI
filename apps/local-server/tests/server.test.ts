@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { StatsSchema } from '@dual-subtitles/shared';
+
 import type { ServerConfig } from '../src/config.js';
 import { DatabaseConnection } from '../src/database/database.js';
 import { ProviderError } from '../src/providers/errors.js';
@@ -89,6 +91,7 @@ describe('routes Fastify', () => {
     });
     const stats = await app.inject({ method: 'GET', url: '/stats' });
     expect(stats.json()).toMatchObject({ translatedLines: 1, apiRequests: 1, cacheEntries: 1 });
+    expect(() => StatsSchema.parse(stats.json())).not.toThrow();
   });
 
   it('traduit un lot ordonné et remet chaque résultat en cache', async () => {
@@ -296,5 +299,19 @@ describe('routes Fastify', () => {
       },
     });
     expect(response.body).not.toContain('secret upstream payload');
+    const stats = await app.inject({ method: 'GET', url: '/stats' });
+    expect(stats.json()).toMatchObject({
+      errors: 1,
+      cancelledLines: 0,
+      runtime: {
+        failedRequests: 1,
+        cancelledRequests: 0,
+        errorCounts: { PROVIDER_RATE_LIMIT: 1 },
+        recentIncidents: [
+          expect.objectContaining({ code: 'PROVIDER_RATE_LIMIT', operation: 'single' }),
+        ],
+      },
+    });
+    expect(stats.body).not.toContain('secret upstream payload');
   });
 });

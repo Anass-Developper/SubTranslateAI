@@ -295,6 +295,7 @@ export class TranslationService {
     signal: AbortSignal,
   ): Promise<Map<string, UncachedTranslation>> {
     if (preparedCues.length === 0) return new Map();
+    const trackedRequest = this.#stats.beginRequest('batch', preparedCues.length);
     const providerInputs: BatchTranslationInput[] = preparedCues.map((cue) => ({
       cueId: cue.cueId,
       text: cue.text,
@@ -323,9 +324,10 @@ export class TranslationService {
         this.#stats.increment('translatedLines');
         translatedByCacheKey.set(cue.cacheKey, cleaned);
       }
+      this.#stats.finishRequest(trackedRequest);
       return translatedByCacheKey;
     } catch (error) {
-      this.#stats.increment('errors', preparedCues.length);
+      this.#stats.finishRequest(trackedRequest, error);
       throw error;
     }
   }
@@ -455,6 +457,7 @@ export class TranslationService {
     signal: AbortSignal | undefined,
   ): Promise<UncachedTranslation> {
     const settings = this.#settings.get();
+    const trackedRequest = this.#stats.beginRequest('single', 1);
     const previousLines = request.previousLines
       .map(normalizeSubtitleText)
       .filter((line) => line.length > 0 && line !== text)
@@ -477,9 +480,10 @@ export class TranslationService {
       const targetLanguages = chooseTranslationTargets(preserved.sourceLanguage);
       this.#cache.set(text, preserved.sourceLanguage, targetLanguages, preserved);
       this.#stats.increment('translatedLines');
+      this.#stats.finishRequest(trackedRequest);
       return preserved;
     } catch (error) {
-      this.#stats.increment('errors');
+      this.#stats.finishRequest(trackedRequest, error);
       throw error;
     }
   }

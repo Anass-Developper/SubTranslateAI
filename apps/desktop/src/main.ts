@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { cp, readFile, rm, writeFile } from 'node:fs/promises';
+import { cpus, freemem, totalmem, uptime } from 'node:os';
 import { join, resolve } from 'node:path';
 
 import { DEFAULT_SERVER_SETTINGS, type ServerSettings, type Stats } from '@dual-subtitles/shared';
@@ -29,6 +30,8 @@ import { readUpdateUrl, UpdateManager } from './update-manager.js';
 
 const MODEL = 'hf.co/tencent/Hy-MT2-7B-GGUF:Q4_K_M';
 const OLLAMA_TAGS_URL = 'http://127.0.0.1:11434/api/tags';
+const OLLAMA_PS_URL = 'http://127.0.0.1:11434/api/ps';
+const OLLAMA_VERSION_URL = 'http://127.0.0.1:11434/api/version';
 const SERVER_URL = 'http://127.0.0.1:47831';
 const currentDirectory = __dirname;
 const hiddenLaunch = process.argv.includes('--hidden');
@@ -489,27 +492,110 @@ async function serverRequest(path: string, init?: RequestInit): Promise<unknown>
 }
 
 async function copyDiagnostics(): Promise<void> {
-  const [status, controls] = await Promise.all([getStatus(), getControlPanel()]);
+  const [status, controls, serverStats, ollamaRuntime, gpu] = await Promise.all([
+    getStatus(),
+    getControlPanel(),
+    fetchStats(),
+    getOllamaRuntimeDiagnostics(),
+    app.getGPUInfo('basic').catch((error: unknown) => ({
+      error: error instanceof Error ? error.message : String(error),
+    })),
+  ]);
+  const processors = cpus();
   clipboard.writeText(
     JSON.stringify(
       {
         app: 'SubTranslateAI',
+        diagnosticFormatVersion: 2,
+        generatedAt: new Date().toISOString(),
         version: app.getVersion(),
         platform: process.platform,
         arch: process.arch,
         electron: process.versions.electron,
+        system: {
+          cpuModel: processors[0]?.model ?? null,
+          logicalProcessors: processors.length,
+          totalMemoryBytes: totalmem(),
+          freeMemoryBytes: freemem(),
+          systemUptimeSeconds: Math.floor(uptime()),
+          gpu,
+        },
         status,
+        ollamaRuntime,
         serverTechnicalError,
         lastSetupError,
         update: updateStatus(),
         settings: controls.serverSettings,
-        stats: controls.stats,
+        stats: serverStats ?? controls.stats,
       },
       null,
       2,
     ),
   );
   sendProgress('Diagnostic copié dans le presse-papiers.');
+}
+
+async function getOllamaRuntimeDiagnostics(): Promise<unknown> {
+  const [versionResult, processesResult] = await Promise.allSettled([
+    fetchLocalJson(OLLAMA_VERSION_URL),
+    fetchLocalJson(OLLAMA_PS_URL),
+  ]);
+  return {
+    version:
+      versionResult.status === 'fulfilled' ? stringProperty(versionResult.value, 'version') : null,
+    loadedModels:
+      processesResult.status === 'fulfilled' ? sanitizeLoadedModels(processesResult.value) : [],
+    versionError:
+      versionResult.status === 'rejected' ? readableDiagnosticError(versionResult.reason) : null,
+    processesError:
+      processesResult.status === 'rejected'
+        ? readableDiagnosticError(processesResult.reason)
+        : null,
+  };
+}
+
+async function fetchLocalJson(url: string): Promise<unknown> {
+  const response = await fetch(url, { signal: AbortSignal.timeout(2_500) });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  return response.json();
+}
+
+function sanitizeLoadedModels(payload: unknown): unknown[] {
+  if (typeof payload !== 'object' || payload === null) return [];
+  const models = (payload as { models?: unknown }).models;
+  if (!Array.isArray(models)) return [];
+  return models.slice(0, 10).map((entry) => {
+    const model =
+      typeof entry === 'object' && entry !== null ? (entry as Record<string, unknown>) : {};
+    const details =
+      typeof model.details === 'object' && model.details !== null
+        ? (model.details as Record<string, unknown>)
+        : {};
+    return {
+      name: typeof model.name === 'string' ? model.name : null,
+      sizeBytes: finiteNumber(model.size),
+      vramBytes: finiteNumber(model.size_vram),
+      expiresAt: typeof model.expires_at === 'string' ? model.expires_at : null,
+      family: typeof details.family === 'string' ? details.family : null,
+      parameterSize: typeof details.parameter_size === 'string' ? details.parameter_size : null,
+      quantization:
+        typeof details.quantization_level === 'string' ? details.quantization_level : null,
+    };
+  });
+}
+
+function stringProperty(value: unknown, key: string): string | null {
+  if (typeof value !== 'object' || value === null) return null;
+  const property = (value as Record<string, unknown>)[key];
+  return typeof property === 'string' ? property : null;
+}
+
+function finiteNumber(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function readableDiagnosticError(error: unknown): string {
+  return (error instanceof Error ? error.message : String(error)).slice(0, 300);
 }
 
 async function openExtensionsPage(browser: 'chrome' | 'edge'): Promise<void> {

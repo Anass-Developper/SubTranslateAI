@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Sous-titres doubles FR / 中文",
   "description": "Affiche simultanément des sous-titres français et chinois via un serveur local.",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "minimum_chrome_version": "111",
   "permissions": ["storage", "activeTab", "scripting"],
   "host_permissions": ["http://127.0.0.1/*", "http://localhost/*"],

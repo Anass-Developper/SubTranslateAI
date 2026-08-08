@@ -63,6 +63,35 @@ export interface DiagnosticReport {
   candidates: CandidateDiagnostic[];
   serverReachable: boolean | null;
   lastError: string | null;
+  settings: {
+    preloadEnabled: boolean;
+    debounceMs: number;
+    fragmentWindowMs: number;
+    requestTimeoutMs: number;
+    reconnectIntervalMs: number;
+    contextLineCount: number;
+    hideNativeSubtitles: boolean;
+    debug: boolean;
+  };
+  snapshot: {
+    capturedAt: string;
+    ageMs: number;
+    textLength: number;
+  };
+  pipeline: {
+    currentTextPresent: boolean;
+    requestInFlight: boolean;
+    currentRequestAgeMs: number | null;
+    observedCues: number;
+    requestsStarted: number;
+    completedTranslations: number;
+    preloadedTranslations: number;
+    cancelledRequests: number;
+    failedRequests: number;
+    lastRequestDurationMs: number | null;
+    lastOutcome: "none" | "translated" | "preloaded" | "cancelled" | "error";
+    lastErrorKind: string | null;
+  };
   preload: {
     enabled: boolean;
     trackId: string | null;
@@ -72,6 +101,11 @@ export interface DiagnosticReport {
     failed: number;
     pending: number;
     lastError: string | null;
+    playbackTimeMs: number | null;
+    currentCueId: string | null;
+    currentCueStartMs: number | null;
+    currentCueEndMs: number | null;
+    cueOffsetMs: number | null;
   };
   capture?: {
     bridge: (BridgeCaptureStats & { receivedAt: number }) | null;
