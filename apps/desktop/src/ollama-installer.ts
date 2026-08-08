@@ -97,6 +97,7 @@ export async function runOllamaInstaller(destination: string): Promise<void> {
     const child = spawn(destination, ['/SILENT', '/SUPPRESSMSGBOXES', '/NORESTART'], {
       windowsHide: true,
       shell: false,
+      stdio: 'ignore',
     });
     child.once('error', reject);
     child.once('exit', (code) => {

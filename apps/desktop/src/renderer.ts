@@ -128,7 +128,6 @@ async function refreshControlPanel(): Promise<void> {
 function updateControlPanel(state: ControlPanelState): void {
   if (!settingsDirty) {
     requiredCheckbox('automatic-updates').checked = state.preferences.automaticUpdates;
-    requiredCheckbox('launch-at-login').checked = state.preferences.launchAtLogin;
     requiredSelect('request-timeout').value = String(state.serverSettings.requestTimeoutMs);
     requiredSelect('max-retries').value = String(state.serverSettings.maxRetries);
     requiredSelect('memory-cache').value = String(state.serverSettings.memoryCacheEntries);
@@ -148,7 +147,7 @@ async function saveSettings(event: SubmitEvent): Promise<void> {
   try {
     const state = await window.subTranslate.saveControlPanel({
       automaticUpdates: requiredCheckbox('automatic-updates').checked,
-      launchAtLogin: requiredCheckbox('launch-at-login').checked,
+      launchAtLogin: false,
       requestTimeoutMs: Number(requiredSelect('request-timeout').value),
       maxRetries: Number(requiredSelect('max-retries').value),
       memoryCacheEntries: Number(requiredSelect('memory-cache').value),

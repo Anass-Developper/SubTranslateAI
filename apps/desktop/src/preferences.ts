@@ -4,7 +4,7 @@ import type { AppPreferences } from './contracts.js';
 
 export const DEFAULT_APP_PREFERENCES: Readonly<AppPreferences> = Object.freeze({
   automaticUpdates: true,
-  launchAtLogin: true,
+  launchAtLogin: false,
 });
 
 export function normalizePreferences(value: unknown): AppPreferences {
@@ -15,10 +15,7 @@ export function normalizePreferences(value: unknown): AppPreferences {
       typeof candidate.automaticUpdates === 'boolean'
         ? candidate.automaticUpdates
         : DEFAULT_APP_PREFERENCES.automaticUpdates,
-    launchAtLogin:
-      typeof candidate.launchAtLogin === 'boolean'
-        ? candidate.launchAtLogin
-        : DEFAULT_APP_PREFERENCES.launchAtLogin,
+    launchAtLogin: false,
   };
 }
 

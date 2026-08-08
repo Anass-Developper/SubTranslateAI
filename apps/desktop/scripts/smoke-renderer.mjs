@@ -1,10 +1,11 @@
 const port = Number(process.argv[2] ?? 9223);
+const closeAfterTest = process.argv.includes('--close');
 const deadline = Date.now() + 20_000;
 let page;
 while (!page && Date.now() < deadline) {
-  const pages = await fetch(`http://127.0.0.1:${port}/json/list`).then((response) =>
-    response.json(),
-  );
+  const pages = await fetch(`http://127.0.0.1:${port}/json/list`)
+    .then((response) => response.json())
+    .catch(() => []);
   page = pages.find((candidate) => candidate.type === 'page');
   if (!page) await new Promise((resolvePromise) => setTimeout(resolvePromise, 250));
 }
@@ -80,5 +81,15 @@ const output = {
   diagnosticCopied: true,
   update: await evaluate('window.subTranslate.getUpdateStatus()'),
 };
+if (closeAfterTest) {
+  socket.send(
+    JSON.stringify({
+      id: ++nextId,
+      method: 'Runtime.evaluate',
+      params: { expression: 'window.close()', awaitPromise: false, returnByValue: false },
+    }),
+  );
+  await new Promise((resolvePromise) => setTimeout(resolvePromise, 1_000));
+}
 socket.close();
 process.stdout.write(`${JSON.stringify(output, null, 2)}\n`);

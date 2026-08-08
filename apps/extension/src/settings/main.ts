@@ -17,18 +17,31 @@ void initialize(root, popupMode);
 function renderApplication(container: HTMLElement, compact: boolean): void {
   container.innerHTML = `
     <header class="app-header">
-      <div>
-        <p class="eyebrow">Dual Subtitles</p>
-        <h1>Français + 中文</h1>
+      <div class="brand">
+        <img class="brand-icon" src="icons/icon48.png" alt="" width="42" height="42" />
+        <div>
+          <h1>SubTranslateAI</h1>
+          <p class="brand-subtitle">Français <span aria-hidden="true">↔</span> 中文</p>
+        </div>
       </div>
-      <label class="switch-label primary-toggle">
+      <label class="switch-label primary-toggle" title="Activer ou désactiver l'extension">
         <input id="enabled" type="checkbox" />
-        <span>Activé</span>
+        <span class="switch-track" aria-hidden="true"></span>
+        <span class="switch-text">Activée</span>
       </label>
     </header>
 
+    <section class="connection-card" id="connection-card" data-state="checking" aria-live="polite">
+      <span class="connection-indicator" aria-hidden="true"></span>
+      <div class="connection-copy">
+        <strong id="connection-state">Vérification…</strong>
+        <span id="connection-detail">Connexion au moteur local</span>
+      </div>
+      <button id="retry-server" type="button" class="icon-button" title="Vérifier la connexion" aria-label="Vérifier la connexion">↻</button>
+    </section>
+
     <form id="settings-form">
-      <section class="panel">
+      <section class="panel options-only platforms-panel">
         <h2>Plateformes</h2>
         <div class="checkbox-grid">
           <label><input id="platform-youtube" type="checkbox" /> YouTube</label>
@@ -39,17 +52,10 @@ function renderApplication(container: HTMLElement, compact: boolean): void {
           <label><input id="platform-bilibili" type="checkbox" /> Bilibili</label>
           <label><input id="platform-generic" type="checkbox" /> Autres plateformes</label>
         </div>
-        ${
-          compact
-            ? `<div class="button-row site-access-row">
-                <button id="enable-current-site" type="button" class="secondary">Activer sur ce site</button>
-                <span id="site-access-result" class="result" role="status"></span>
-              </div>`
-            : `<p class="hint">Pour un autre service de streaming, ouvrez son site puis utilisez « Activer sur ce site » depuis le popup.</p>`
-        }
+        <p class="hint">Pour un autre service de streaming, ouvrez son site puis utilisez « Activer sur ce site » depuis le popup.</p>
       </section>
 
-      <section class="panel">
+      <section class="panel options-only server-panel">
         <h2>Serveur local</h2>
         <label class="field">
           <span>Adresse</span>
@@ -61,8 +67,20 @@ function renderApplication(container: HTMLElement, compact: boolean): void {
         </div>
       </section>
 
-      <section class="panel">
-        <h2>Affichage</h2>
+      <section class="panel display-panel">
+        <div class="section-heading">
+          <div><p class="eyebrow">Sous-titres</p><h2>Affichage</h2></div>
+          <span class="auto-save">Enregistrement auto</span>
+        </div>
+        <label class="field">
+          <span>Langues affichées</span>
+          <select id="subtitle-display-mode">
+            <option value="both">Français + chinois</option>
+            <option value="fr-only">Français uniquement</option>
+            <option value="zh-only">Chinois uniquement</option>
+          </select>
+          <small>Les pistes anglaises sont automatiquement traduites en français et en chinois.</small>
+        </label>
         <label class="field">
           <span>Ordre des langues</span>
           <select id="language-order">
@@ -82,17 +100,46 @@ function renderApplication(container: HTMLElement, compact: boolean): void {
           <span>Opacité du fond <output id="opacity-output"></output></span>
           <input id="background-opacity" type="range" min="0" max="0.95" step="0.05" />
         </label>
-        <div class="checkbox-grid stacked">
-          <label><input id="text-shadow" type="checkbox" /> Contour / ombre du texte</label>
-          <label><input id="hide-native" type="checkbox" /> Masquer le sous-titre natif</label>
-          <label><input id="debug" type="checkbox" /> Mode debug</label>
+        <div class="toggle-list">
+          <label class="setting-toggle">
+            <span><strong>Texte renforcé</strong><small>Plus lisible sur les scènes claires</small></span>
+            <input id="text-shadow" type="checkbox" />
+          </label>
+          <label class="setting-toggle">
+            <span><strong>Masquer les sous-titres d'origine</strong><small>Affiche uniquement la version bilingue</small></span>
+            <input id="hide-native" type="checkbox" />
+          </label>
+          <label class="setting-toggle">
+            <span><strong>Préchargement intelligent</strong><small>Traduit les prochaines répliques en avance</small></span>
+            <input id="preload-enabled" type="checkbox" />
+          </label>
+          <label class="setting-toggle">
+            <span><strong>Pause au premier chargement</strong><small>Attend seulement si la première traduction est lente, puis reprend la vidéo</small></span>
+            <input id="pause-on-warmup" type="checkbox" />
+          </label>
+          <label class="setting-toggle options-only">
+            <span><strong>Mode diagnostic</strong><small>Affiche les informations techniques sur la vidéo</small></span>
+            <input id="debug" type="checkbox" />
+          </label>
         </div>
       </section>
 
-      <section class="panel advanced">
-        <h2>Performance</h2>
-        <div class="checkbox-grid stacked">
-          <label><input id="preload-enabled" type="checkbox" /> Précharger et traduire la piste complète en arrière-plan</label>
+      ${
+        compact
+          ? `<section class="panel current-site-panel">
+              <div>
+                <h2>Cette page</h2>
+                <p class="hint">Pour un site qui n'est pas encore dans la liste.</p>
+              </div>
+              <button id="enable-current-site" type="button" class="secondary">Activer le site</button>
+              <span id="site-access-result" class="result full-width" role="status"></span>
+            </section>`
+          : ""
+      }
+
+      <section class="panel options-only performance-panel">
+        <div class="section-heading">
+          <div><p class="eyebrow">Expert</p><h2>Performance</h2></div>
         </div>
         <div class="two-columns">
           <label class="field">
@@ -118,25 +165,27 @@ function renderApplication(container: HTMLElement, compact: boolean): void {
         </div>
       </section>
 
-      <section class="panel">
-        <h2>Cache et diagnostic</h2>
+      <section class="panel diagnostic-panel">
+        <div class="section-heading">
+          <div><p class="eyebrow">Activité</p><h2>Traductions locales</h2></div>
+        </div>
         <dl class="stats">
           <div><dt>Lignes traduites</dt><dd id="translated-stat">—</dd></div>
-          <div><dt>Réutilisées du cache</dt><dd id="cached-stat">—</dd></div>
-          <div class="advanced"><dt>Taux de cache</dt><dd id="cache-rate-stat">—</dd></div>
+          <div><dt>Réutilisées</dt><dd id="cached-stat">—</dd></div>
+          <div class="options-only"><dt>Taux de cache</dt><dd id="cache-rate-stat">—</dd></div>
         </dl>
         <div class="button-row wrap">
-          <button id="refresh-stats" type="button">Actualiser</button>
-          <button id="clear-cache" type="button" class="secondary">Vider le cache</button>
-          <button id="copy-diagnostics" type="button" class="secondary">Copier le diagnostic</button>
+          <button id="copy-diagnostics" type="button">Copier le diagnostic</button>
+          <button id="refresh-stats" type="button" class="secondary">Actualiser</button>
+          <button id="clear-cache" type="button" class="secondary options-only">Vider le cache</button>
         </div>
         <p id="action-result" class="result" role="status"></p>
       </section>
     </form>
 
     <footer>
-      <span>Raccourci : <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>Y</kbd></span>
-      ${compact ? '<button id="open-options" type="button" class="link-button">Réglages avancés</button>' : ""}
+      <span class="shortcut"><kbd>Ctrl</kbd><span>+</span><kbd>Shift</kbd><span>+</span><kbd>Y</kbd></span>
+      ${compact ? '<button id="open-options" type="button" class="link-button">Tous les réglages →</button>' : "<span>Les modifications sont enregistrées automatiquement.</span>"}
     </footer>
   `;
 }
@@ -145,9 +194,11 @@ async function initialize(container: HTMLElement, compact: boolean): Promise<voi
   let settings = await loadSettings();
   fillForm(container, settings);
   updateRangeOutputs(container);
+  updateLanguageControls(container);
 
   const form = requiredElement<HTMLFormElement>(container, "#settings-form");
   form.addEventListener("change", () => {
+    updateLanguageControls(container);
     const next = readForm(container, settings);
     if (!next) {
       return;
@@ -160,6 +211,9 @@ async function initialize(container: HTMLElement, compact: boolean): Promise<voi
   form.addEventListener("input", () => updateRangeOutputs(container));
 
   requiredElement(container, "#test-server").addEventListener("click", () => {
+    void testConnection(container, settings);
+  });
+  requiredElement(container, "#retry-server").addEventListener("click", () => {
     void testConnection(container, settings);
   });
   requiredElement(container, "#refresh-stats").addEventListener("click", () => {
@@ -181,7 +235,10 @@ async function initialize(container: HTMLElement, compact: boolean): Promise<voi
     });
   }
 
-  await refreshStats(container, settings, true);
+  await Promise.all([
+    refreshStats(container, settings, true),
+    refreshConnectionState(container, settings),
+  ]);
 }
 
 function fillForm(container: HTMLElement, settings: ExtensionSettings): void {
@@ -194,6 +251,7 @@ function fillForm(container: HTMLElement, settings: ExtensionSettings): void {
   checkbox(container, "#platform-bilibili").checked = settings.platforms.bilibili;
   checkbox(container, "#platform-generic").checked = settings.platforms.generic;
   input(container, "#server-url").value = settings.serverUrl;
+  select(container, "#subtitle-display-mode").value = settings.subtitleDisplayMode;
   select(container, "#language-order").value = settings.languageOrder;
   input(container, "#font-size").value = settings.fontSize.toString();
   input(container, "#vertical-position").value = settings.verticalPosition.toString();
@@ -202,6 +260,7 @@ function fillForm(container: HTMLElement, settings: ExtensionSettings): void {
   checkbox(container, "#hide-native").checked = settings.hideNativeSubtitles;
   checkbox(container, "#debug").checked = settings.debug;
   checkbox(container, "#preload-enabled").checked = settings.preloadEnabled;
+  checkbox(container, "#pause-on-warmup").checked = settings.pauseOnInitialWarmup;
   input(container, "#fragment-window").value = settings.fragmentWindowMs.toString();
   input(container, "#debounce").value = settings.debounceMs.toString();
   input(container, "#request-timeout").value = settings.requestTimeoutMs.toString();
@@ -236,6 +295,7 @@ function readForm(container: HTMLElement, previous: ExtensionSettings): Extensio
       generic: checkbox(container, "#platform-generic").checked,
     },
     serverUrl,
+    subtitleDisplayMode: subtitleDisplayMode(container),
     languageOrder:
       select(container, "#language-order").value === "zh-first" ? "zh-first" : "fr-first",
     fontSize: numberValue(container, "#font-size", 16, 56),
@@ -245,6 +305,7 @@ function readForm(container: HTMLElement, previous: ExtensionSettings): Extensio
     hideNativeSubtitles: checkbox(container, "#hide-native").checked,
     debug: checkbox(container, "#debug").checked,
     preloadEnabled: checkbox(container, "#preload-enabled").checked,
+    pauseOnInitialWarmup: checkbox(container, "#pause-on-warmup").checked,
     debounceMs: numberValue(container, "#debounce", 20, 500),
     fragmentWindowMs: numberValue(container, "#fragment-window", 40, 1000),
     requestTimeoutMs: numberValue(container, "#request-timeout", 1000, 25000),
@@ -253,8 +314,22 @@ function readForm(container: HTMLElement, previous: ExtensionSettings): Extensio
   });
 }
 
+function subtitleDisplayMode(container: HTMLElement): ExtensionSettings["subtitleDisplayMode"] {
+  const value = select(container, "#subtitle-display-mode").value;
+  if (value === "fr-only" || value === "zh-only") return value;
+  return "both";
+}
+
+function updateLanguageControls(container: HTMLElement): void {
+  const order = select(container, "#language-order");
+  const bothLanguages = subtitleDisplayMode(container) === "both";
+  order.disabled = !bothLanguages;
+  order.title = bothLanguages ? "" : "Disponible lorsque les deux langues sont affichées";
+}
+
 async function testConnection(container: HTMLElement, settings: ExtensionSettings): Promise<void> {
   setResult(container, "#server-result", "Connexion…");
+  setConnectionState(container, "checking", "Vérification…", "Connexion au moteur local");
   try {
     const client = new ServerClient(
       input(container, "#server-url").value,
@@ -275,9 +350,38 @@ async function testConnection(container: HTMLElement, settings: ExtensionSetting
         ? `Serveur disponible — ${providerLabel} — clé API de secours absente`
         : `Serveur disponible — ${providerLabel}`,
     );
+    setConnectionState(container, "ready", "Prêt à traduire", providerLabel);
   } catch (error) {
     setResult(container, "#server-result", readableError(error), true);
+    setConnectionState(container, "error", "Moteur indisponible", readableError(error));
   }
+}
+
+async function refreshConnectionState(
+  container: HTMLElement,
+  settings: ExtensionSettings,
+): Promise<void> {
+  try {
+    const health = await new ServerClient(
+      settings.serverUrl,
+      settings.requestTimeoutMs,
+    ).getHealth();
+    const detail = health.provider === "ollama" ? `Local · ${health.model}` : health.model;
+    setConnectionState(container, "ready", "Prêt à traduire", detail);
+  } catch (error) {
+    setConnectionState(container, "error", "Moteur indisponible", readableError(error));
+  }
+}
+
+function setConnectionState(
+  container: HTMLElement,
+  state: "checking" | "ready" | "error",
+  title: string,
+  detail: string,
+): void {
+  requiredElement(container, "#connection-card").dataset.state = state;
+  requiredElement(container, "#connection-state").textContent = title;
+  requiredElement(container, "#connection-detail").textContent = detail;
 }
 
 async function refreshStats(

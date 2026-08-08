@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process';
+import { spawn, type ChildProcess } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { cp, readFile, rm, writeFile } from 'node:fs/promises';
 import { cpus, freemem, totalmem, uptime } from 'node:os';
@@ -24,6 +24,7 @@ import {
   runOllamaInstaller,
   verifyOllamaInstaller,
 } from './ollama-installer.js';
+import { disableOllamaLaunchAtLogin, stopOllamaProcesses } from './ollama-lifecycle.js';
 import { ollamaModelNames } from './ollama-status.js';
 import { DEFAULT_APP_PREFERENCES, readPreferences, writePreferences } from './preferences.js';
 import { readUpdateUrl, UpdateManager } from './update-manager.js';
@@ -65,6 +66,7 @@ let setupBusy = false;
 let quitting = false;
 let preferences: AppPreferences = { ...DEFAULT_APP_PREFERENCES };
 let updateManager: UpdateManager | null = null;
+let ollamaServerProcess: ChildProcess | null = null;
 
 console.error(`[SubTranslateAI] Démarrage (Electron ${process.versions.electron}).`);
 
@@ -75,9 +77,12 @@ if (!app.requestSingleInstanceLock()) {
   void app
     .whenReady()
     .then(async () => {
-      preferences = await readPreferences(preferencesPath());
+      const storedPreferences = await readPreferences(preferencesPath());
+      preferences = { ...storedPreferences, launchAtLogin: false };
+      if (storedPreferences.launchAtLogin) await writePreferences(preferencesPath(), preferences);
       lastSetupError = await readLastSetupError();
-      applyLoginPreference(preferences.launchAtLogin);
+      applyLoginPreference(false);
+      await disableOllamaLaunchAtLogin();
       registerIpcHandlers();
       await syncExtensionFiles();
       await startServer();
@@ -155,6 +160,11 @@ function createWindow(): void {
   mainWindow.webContents.on('will-navigate', (event) => event.preventDefault());
   mainWindow.once('ready-to-show', () => {
     if (!hiddenLaunch) mainWindow?.show();
+  });
+  mainWindow.on('close', (event) => {
+    if (quitting) return;
+    event.preventDefault();
+    void shutdown();
   });
   mainWindow.on('closed', () => {
     mainWindow = null;
@@ -246,6 +256,7 @@ async function setupEverything(): Promise<InstallResult> {
         stage = 'install';
         sendProgress('Installation d’Ollama dans ton profil Windows…');
         await runOllamaInstaller(installerPath);
+        await disableOllamaLaunchAtLogin();
       } finally {
         await rm(installerPath, { force: true }).catch(() => undefined);
       }
@@ -305,7 +316,11 @@ async function pullModel(executable: string): Promise<void> {
   }
   sendProgress('Téléchargement de Hy‑MT2‑7B (environ 4,6 Go)…');
   await new Promise<void>((resolvePromise, reject) => {
-    const child = spawn(executable, ['pull', MODEL], { windowsHide: true, shell: false });
+    const child = spawn(executable, ['pull', MODEL], {
+      windowsHide: true,
+      shell: false,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
     child.stdout.on('data', () => sendProgress('Téléchargement de Hy‑MT2‑7B en cours…'));
     child.stderr.on('data', (chunk: Buffer) => {
       const match = chunk.toString('utf8').match(/(\d{1,3})%/u);
@@ -331,12 +346,24 @@ async function ensureOllamaRunning(required: boolean): Promise<boolean> {
   }
   sendProgress('Démarrage du moteur Ollama…');
   const child = spawn(executable, ['serve'], {
-    detached: true,
+    detached: false,
     windowsHide: true,
+    shell: false,
     stdio: 'ignore',
   });
-  child.unref();
-  const ready = await waitForOllama(45_000);
+  ollamaServerProcess = child;
+  const stoppedBeforeReady = new Promise<boolean>((resolvePromise) => {
+    child.once('error', (error) => {
+      if (ollamaServerProcess === child) ollamaServerProcess = null;
+      console.error('[SubTranslateAI] Ollama could not start.', error);
+      resolvePromise(false);
+    });
+    child.once('exit', () => {
+      if (ollamaServerProcess === child) ollamaServerProcess = null;
+      resolvePromise(false);
+    });
+  });
+  const ready = await Promise.race([waitForOllama(45_000), stoppedBeforeReady]);
   if (!ready && required) throw new Error('Ollama est installé, mais son service ne démarre pas.');
   return ready;
 }
@@ -407,10 +434,10 @@ async function saveControlPanel(input: unknown): Promise<ControlPanelState> {
   const next = validateControlInput(input);
   preferences = {
     automaticUpdates: next.automaticUpdates,
-    launchAtLogin: next.launchAtLogin,
+    launchAtLogin: false,
   };
   await writePreferences(preferencesPath(), preferences);
-  applyLoginPreference(preferences.launchAtLogin);
+  applyLoginPreference(false);
   updateManager?.setEnabled(preferences.automaticUpdates);
   await serverRequest('/settings', {
     method: 'PUT',
@@ -705,5 +732,8 @@ async function shutdown(): Promise<void> {
   if (quitting) return;
   quitting = true;
   if (server) await server.close().catch(() => undefined);
+  if (ollamaServerProcess && !ollamaServerProcess.killed) ollamaServerProcess.kill();
+  await stopOllamaProcesses(findOllamaExecutable(), MODEL);
+  ollamaServerProcess = null;
   app.quit();
 }

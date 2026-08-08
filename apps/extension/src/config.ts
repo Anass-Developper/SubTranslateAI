@@ -1,7 +1,7 @@
 import type { ExtensionSettings, PlatformId } from "./types";
 
 export const STORAGE_KEY = "dualSubtitlesSettings";
-const CURRENT_SETTINGS_VERSION = 4;
+const CURRENT_SETTINGS_VERSION = 6;
 const LATENCY_SETTINGS_VERSION = 2;
 
 export const DEFAULT_EXTENSION_SETTINGS: ExtensionSettings = {
@@ -18,6 +18,7 @@ export const DEFAULT_EXTENSION_SETTINGS: ExtensionSettings = {
   },
   serverUrl: "http://127.0.0.1:47831",
   languageOrder: "fr-first",
+  subtitleDisplayMode: "both",
   fontSize: 30,
   verticalPosition: 10,
   backgroundOpacity: 0.62,
@@ -25,6 +26,7 @@ export const DEFAULT_EXTENSION_SETTINGS: ExtensionSettings = {
   hideNativeSubtitles: false,
   debug: false,
   preloadEnabled: true,
+  pauseOnInitialWarmup: true,
   debounceMs: 60,
   fragmentWindowMs: 120,
   reconnectIntervalMs: 15_000,
@@ -44,6 +46,12 @@ export function mergeSettings(value?: Partial<ExtensionSettings> | null): Extens
     ...value,
     ...(needsLatencyMigration ? { debounceMs: 60, fragmentWindowMs: 120 } : {}),
     ...(needsTimeoutMigration ? { requestTimeoutMs: 20_000 } : {}),
+    subtitleDisplayMode:
+      value?.subtitleDisplayMode === "fr-only" || value?.subtitleDisplayMode === "zh-only"
+        ? value.subtitleDisplayMode
+        : "both",
+    pauseOnInitialWarmup:
+      typeof value?.pauseOnInitialWarmup === "boolean" ? value.pauseOnInitialWarmup : true,
     settingsVersion: CURRENT_SETTINGS_VERSION,
     platforms: {
       ...DEFAULT_EXTENSION_SETTINGS.platforms,

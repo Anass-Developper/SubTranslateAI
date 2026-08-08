@@ -5,6 +5,7 @@ export type PlatformId =
   "youtube" | "netflix" | "primeVideo" | "canalPlus" | "appleTv" | "bilibili" | "generic";
 
 export type LanguageOrder = "fr-first" | "zh-first";
+export type SubtitleDisplayMode = "both" | "fr-only" | "zh-only";
 
 export interface PlatformSettings {
   youtube: boolean;
@@ -22,6 +23,7 @@ export interface ExtensionSettings {
   platforms: PlatformSettings;
   serverUrl: string;
   languageOrder: LanguageOrder;
+  subtitleDisplayMode: SubtitleDisplayMode;
   fontSize: number;
   verticalPosition: number;
   backgroundOpacity: number;
@@ -29,6 +31,7 @@ export interface ExtensionSettings {
   hideNativeSubtitles: boolean;
   debug: boolean;
   preloadEnabled: boolean;
+  pauseOnInitialWarmup: boolean;
   debounceMs: number;
   fragmentWindowMs: number;
   reconnectIntervalMs: number;
@@ -64,7 +67,9 @@ export interface DiagnosticReport {
   serverReachable: boolean | null;
   lastError: string | null;
   settings: {
+    subtitleDisplayMode: SubtitleDisplayMode;
     preloadEnabled: boolean;
+    pauseOnInitialWarmup: boolean;
     debounceMs: number;
     fragmentWindowMs: number;
     requestTimeoutMs: number;

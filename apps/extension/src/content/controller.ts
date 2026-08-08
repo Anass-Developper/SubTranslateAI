@@ -13,7 +13,9 @@ import type {
 import { SubtitleOverlay } from "../ui/overlay";
 import { NativeSubtitleHider } from "./native-subtitle-hider";
 import { SpaNavigationWatcher } from "./navigation";
-import { SubtitlePreloadCoordinator } from "./subtitle-preload-coordinator";
+import { describePreloadStatus } from "./preload-display";
+import { InitialWarmupPause } from "./initial-warmup-pause";
+import { SubtitlePreloadCoordinator, selectPlaybackVideo } from "./subtitle-preload-coordinator";
 
 export class ContentController {
   private settings: ExtensionSettings | null = null;
@@ -23,6 +25,10 @@ export class ContentController {
   private preload: SubtitlePreloadCoordinator | null = null;
   private overlay: SubtitleOverlay | null = null;
   private readonly hider = new NativeSubtitleHider();
+  private readonly warmupPause = new InitialWarmupPause(
+    () => selectPlaybackVideo(document),
+    () => this.refreshPreloadStatus(),
+  );
   private navigationWatcher: SpaNavigationWatcher | null = null;
   private unsubscribeSettings: (() => void) | null = null;
   private latestSnapshot: SubtitleSnapshot = {
@@ -33,6 +39,7 @@ export class ContentController {
   };
   private serverReachable: boolean | null = null;
   private lastError: string | null = null;
+  private translationPending = false;
 
   async start(): Promise<void> {
     this.settings = await loadSettings();
@@ -47,7 +54,10 @@ export class ContentController {
           this.pipeline?.acceptPreloaded(text, response);
         }
       },
-      onStatusChange: () => this.refreshDiagnostics(),
+      onStatusChange: () => {
+        this.refreshPreloadStatus();
+        this.refreshDiagnostics();
+      },
     });
     this.preload.start(this.adapter.platform);
 
@@ -59,6 +69,7 @@ export class ContentController {
   }
 
   stop(): void {
+    void this.warmupPause.disable();
     this.stopAdapter();
     this.pipeline?.dispose();
     this.pipeline = null;
@@ -107,7 +118,9 @@ export class ContentController {
       serverReachable: this.serverReachable,
       lastError: this.lastError,
       settings: {
+        subtitleDisplayMode: settings?.subtitleDisplayMode ?? "both",
         preloadEnabled: settings?.preloadEnabled ?? false,
+        pauseOnInitialWarmup: settings?.pauseOnInitialWarmup ?? true,
         debounceMs: settings?.debounceMs ?? 0,
         fragmentWindowMs: settings?.fragmentWindowMs ?? 0,
         requestTimeoutMs: settings?.requestTimeoutMs ?? 0,
@@ -166,22 +179,33 @@ export class ContentController {
     return new SubtitlePipeline(settings, {
       onPending: (text, hint) => {
         this.lastError = null;
+        this.translationPending = true;
         this.overlay?.showPendingSource(text, hint);
+        this.warmupPause.schedule(Boolean(this.settings?.pauseOnInitialWarmup));
+        this.refreshPreloadStatus();
       },
       onTranslation: (response) => {
         this.lastError = null;
-        this.serverReachable = true;
+        this.translationPending = false;
         this.overlay?.showTranslation(response);
+        void this.warmupPause.complete();
+        this.serverReachable = true;
+        this.refreshPreloadStatus();
         this.refreshDiagnostics();
       },
       onEmpty: () => {
         this.lastError = null;
+        this.translationPending = false;
         this.overlay?.clearText();
+        void this.warmupPause.complete();
         this.overlay?.setStatus("");
+        this.refreshPreloadStatus();
         this.refreshDiagnostics();
       },
       onError: (message) => {
         this.lastError = message;
+        this.translationPending = false;
+        void this.warmupPause.complete();
         this.overlay?.setStatus(message);
         this.refreshDiagnostics();
       },
@@ -201,6 +225,7 @@ export class ContentController {
     this.overlay?.applySettings(settings);
     this.pipeline?.updateSettings(settings);
     this.preload?.updateSettings(settings);
+    if (!settings.pauseOnInitialWarmup) void this.warmupPause.disable();
 
     const enabled = Boolean(this.adapter && isPlatformEnabled(settings, this.adapter.platform));
     this.overlay?.setActive(enabled);
@@ -244,6 +269,7 @@ export class ContentController {
   }
 
   private handleNavigation(): void {
+    void this.warmupPause.reset();
     this.stopAdapter();
     this.pipeline?.reset();
     this.hider.clear();
@@ -255,6 +281,7 @@ export class ContentController {
       candidates: [],
       capturedAt: Date.now(),
     };
+    this.translationPending = false;
     if (this.settings) {
       this.applySettings(this.settings);
     }
@@ -262,6 +289,25 @@ export class ContentController {
 
   private refreshDiagnostics(): void {
     this.overlay?.setDiagnostics(this.getDiagnostics());
+  }
+
+  private refreshPreloadStatus(): void {
+    if (this.warmupPause.isPausedByExtension()) {
+      this.overlay?.setPreparationStatus(
+        "loading",
+        "Vidéo en pause · première traduction en préparation…",
+      );
+      return;
+    }
+    const status = this.preload?.getStatus();
+    const display = status
+      ? describePreloadStatus(
+          status,
+          Boolean(this.settings?.preloadEnabled),
+          this.translationPending,
+        )
+      : { state: "hidden" as const, message: "" };
+    this.overlay?.setPreparationStatus(display.state, display.message);
   }
 
   private async toggleEnabled(): Promise<void> {

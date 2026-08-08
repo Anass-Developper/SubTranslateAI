@@ -16,4 +16,11 @@ describe('normalizePreferences', () => {
       launchAtLogin: false,
     });
   });
+
+  it('désactive une ancienne préférence de démarrage avec Windows', () => {
+    expect(normalizePreferences({ automaticUpdates: true, launchAtLogin: true })).toEqual({
+      automaticUpdates: true,
+      launchAtLogin: false,
+    });
+  });
 });

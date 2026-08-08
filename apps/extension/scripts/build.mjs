@@ -1,4 +1,4 @@
-import { mkdir, rm, copyFile } from "node:fs/promises";
+import { cp, mkdir, rm, copyFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { build } from "vite";
@@ -10,6 +10,7 @@ const watching = process.argv.includes("--watch");
 await rm(outDir, { recursive: true, force: true });
 await mkdir(outDir, { recursive: true });
 await copyFile(resolve(extensionRoot, "manifest.json"), resolve(outDir, "manifest.json"));
+await cp(resolve(extensionRoot, "icons"), resolve(outDir, "icons"), { recursive: true });
 
 const common = {
   configFile: false,
