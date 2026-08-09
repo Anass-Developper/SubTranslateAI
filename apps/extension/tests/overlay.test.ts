@@ -26,43 +26,19 @@ describe("overlay bilingue", () => {
     expect(container?.getAttribute("aria-live")).toBe("polite");
     expect(card?.hidden).toBe(false);
     expect(style).toContain("max-width: min(90vw, 980px)");
-    expect(style).toContain("linear-gradient(180deg, #28c7ed, #8a61ff)");
+    expect(style).not.toContain(".subtitle-card::before");
     overlay.destroy();
   });
 
-  it("affiche clairement la préparation puis l’état prêt", () => {
+  it("n'affiche aucun message de préparation ou de modèle", () => {
     const overlay = new SubtitleOverlay(document);
     overlay.mount();
     overlay.showPendingSource("Hello", "fr");
 
     const host = document.querySelector<HTMLElement>("[data-dual-subtitles-overlay]");
-    const preparation = host?.shadowRoot?.querySelector<HTMLElement>(".preparation");
-    expect(preparation?.dataset.state).toBe("loading");
-    expect(preparation?.textContent).toBe("Traduction en cours…");
-
-    overlay.setPreparationStatus("ready", "Prêt · 6/120 répliques préparées");
-    expect(preparation?.dataset.state).toBe("ready");
-    expect(preparation?.textContent).toContain("Prêt");
-    expect(preparation?.hidden).toBe(false);
-    overlay.destroy();
-  });
-
-  it("masque automatiquement l’état lorsque l’épisode est prêt", () => {
-    vi.useFakeTimers();
-    const overlay = new SubtitleOverlay(document);
-    overlay.mount();
-    overlay.setPreparationStatus("complete", "Épisode prêt · 326 répliques");
-
-    const host = document.querySelector<HTMLElement>("[data-dual-subtitles-overlay]");
-    const preparation = host?.shadowRoot?.querySelector<HTMLElement>(".preparation");
-    expect(preparation?.hidden).toBe(false);
-    vi.advanceTimersByTime(3_999);
-    expect(preparation?.hidden).toBe(false);
-    vi.advanceTimersByTime(1);
-    expect(preparation?.hidden).toBe(true);
-
-    overlay.setPreparationStatus("complete", "Épisode prêt · 326 répliques");
-    expect(preparation?.hidden).toBe(true);
+    expect(host?.shadowRoot?.querySelector(".preparation")).toBeNull();
+    expect(host?.shadowRoot?.textContent).not.toContain("Traduction en cours");
+    expect(host?.shadowRoot?.textContent).not.toContain("Épisode prêt");
     overlay.destroy();
   });
 

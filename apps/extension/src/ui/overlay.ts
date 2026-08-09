@@ -5,8 +5,6 @@ import type {
   TranslationResponse,
 } from "../types";
 
-const PREPARATION_COMPLETE_VISIBLE_MS = 4_000;
-
 export class SubtitleOverlay {
   private readonly host: HTMLDivElement;
   private readonly shadow: ShadowRoot;
@@ -15,7 +13,6 @@ export class SubtitleOverlay {
   private readonly frenchLine: HTMLDivElement;
   private readonly chineseLine: HTMLDivElement;
   private readonly sourceLine: HTMLDivElement;
-  private readonly preparationLine: HTMLDivElement;
   private readonly statusLine: HTMLDivElement;
   private readonly debugPanel: HTMLDivElement;
   private readonly debugText: HTMLPreElement;
@@ -23,7 +20,6 @@ export class SubtitleOverlay {
   private currentDiagnostics: DiagnosticReport | null = null;
   private currentTranslation: TranslationResponse | null = null;
   private subtitleDisplayMode: SubtitleDisplayMode = "both";
-  private preparationHideTimer: ReturnType<typeof setTimeout> | null = null;
   private mounted = false;
   private readonly fullscreenHandler = (): void => this.moveIntoFullscreenRoot();
   private readonly copyHandler = (): void => void this.copyDiagnostics();
@@ -52,12 +48,10 @@ export class SubtitleOverlay {
     this.frenchLine = this.createLine("subtitle-line french", "fr", "FR");
     this.chineseLine = this.createLine("subtitle-line chinese", "zh-Hans", "简中");
     this.sourceLine = this.createLine("subtitle-line source", "");
-    this.preparationLine = this.createLine("preparation", "fr");
-    this.preparationLine.setAttribute("role", "status");
     this.statusLine = this.createLine("status", "fr");
     this.statusLine.setAttribute("role", "status");
     this.subtitleCard.append(this.frenchLine, this.chineseLine, this.sourceLine);
-    this.container.append(this.subtitleCard, this.preparationLine, this.statusLine);
+    this.container.append(this.subtitleCard, this.statusLine);
 
     this.debugPanel = documentRoot.createElement("div");
     this.debugPanel.className = "debug-panel";
@@ -85,7 +79,6 @@ export class SubtitleOverlay {
   destroy(): void {
     this.documentRoot.removeEventListener("fullscreenchange", this.fullscreenHandler);
     this.copyButton.removeEventListener("click", this.copyHandler);
-    this.clearPreparationHideTimer();
     this.host.remove();
     this.mounted = false;
   }
@@ -124,7 +117,6 @@ export class SubtitleOverlay {
     }
     this.container.dataset.state = "pending";
     this.syncSubtitleCard();
-    this.setPreparationStatus("loading", "Traduction en cours…");
     this.setStatus("");
   }
 
@@ -148,26 +140,6 @@ export class SubtitleOverlay {
     this.setLine(this.statusLine, message);
   }
 
-  setPreparationStatus(state: "hidden" | "loading" | "ready" | "complete", message = ""): void {
-    if (
-      this.preparationLine.dataset.state === state &&
-      this.preparationLine.textContent === message
-    ) {
-      return;
-    }
-    this.clearPreparationHideTimer();
-    this.preparationLine.dataset.state = state;
-    this.setLine(this.preparationLine, state === "hidden" ? "" : message);
-    if (state === "complete") {
-      this.preparationHideTimer = setTimeout(() => {
-        this.preparationHideTimer = null;
-        if (this.preparationLine.dataset.state === "complete") {
-          this.preparationLine.hidden = true;
-        }
-      }, PREPARATION_COMPLETE_VISIBLE_MS);
-    }
-  }
-
   setDiagnostics(report: DiagnosticReport): void {
     this.currentDiagnostics = report;
     this.debugText.textContent = formatDiagnosticReport(report);
@@ -184,12 +156,6 @@ export class SubtitleOverlay {
     this.setLine(this.chineseLine, this.subtitleDisplayMode === "fr-only" ? "" : response.zh);
     this.setLine(this.sourceLine, "");
     this.syncSubtitleCard();
-  }
-
-  private clearPreparationHideTimer(): void {
-    if (this.preparationHideTimer === null) return;
-    clearTimeout(this.preparationHideTimer);
-    this.preparationHideTimer = null;
   }
 
   private createLine(className: string, language: string, label?: string): HTMLDivElement {
@@ -292,7 +258,7 @@ const OVERLAY_CSS = `
     align-items: center;
     gap: 0;
     max-width: 100%;
-    padding: 9px 18px 10px 21px;
+    padding: 9px 18px 10px;
     overflow: hidden;
     border: 1px solid rgb(255 255 255 / 0.1);
     border-radius: 14px;
@@ -305,15 +271,6 @@ const OVERLAY_CSS = `
     backdrop-filter: blur(12px) saturate(1.08);
     -webkit-backdrop-filter: blur(12px) saturate(1.08);
     transition: opacity 150ms ease, transform 150ms ease;
-  }
-  .subtitle-card::before {
-    content: "";
-    position: absolute;
-    inset: 9px auto 9px 8px;
-    width: 3px;
-    border-radius: 99px;
-    background: linear-gradient(180deg, #28c7ed, #8a61ff);
-    box-shadow: 0 0 12px rgb(80 145 255 / 0.44);
   }
   .subtitle-container[data-state="pending"] .subtitle-card {
     opacity: 0.72;
@@ -368,42 +325,6 @@ const OVERLAY_CSS = `
     animation: dual-pulse 1.25s ease-out infinite;
     vertical-align: 0.08em;
   }
-  .preparation {
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    max-width: min(84vw, 720px);
-    padding: 5px 10px;
-    border: 1px solid rgb(90 166 255 / 0.2);
-    border-radius: 999px;
-    background: rgb(6 17 32 / 0.82);
-    color: #dcecff;
-    font: 600 12px/1.25 system-ui, sans-serif;
-    box-shadow: 0 5px 18px rgb(0 0 0 / 0.24);
-    backdrop-filter: blur(8px);
-  }
-  .preparation::before {
-    content: "";
-    width: 7px;
-    height: 7px;
-    flex: 0 0 auto;
-    border: 2px solid rgb(88 198 255 / 0.28);
-    border-top-color: #58c6ff;
-    border-radius: 50%;
-    animation: dual-spin 0.8s linear infinite;
-  }
-  .preparation[data-state="ready"],
-  .preparation[data-state="complete"] {
-    border-color: rgb(66 222 160 / 0.2);
-    color: #d8ffed;
-  }
-  .preparation[data-state="ready"]::before,
-  .preparation[data-state="complete"]::before {
-    border: 0;
-    background: #42dea0;
-    box-shadow: 0 0 9px rgb(66 222 160 / 0.56);
-    animation: none;
-  }
   .status {
     max-width: min(84vw, 720px);
     padding: 5px 11px;
@@ -451,18 +372,15 @@ const OVERLAY_CSS = `
   }
   @media (max-width: 720px) {
     .subtitle-container { max-width: 96vw; }
-    .subtitle-card { padding: 7px 12px 8px 17px; border-radius: 11px; }
-    .subtitle-card::before { left: 6px; }
+    .subtitle-card { padding: 7px 12px 8px; border-radius: 11px; }
     .subtitle-line { font-size: min(var(--dual-font-size), 7vw); }
   }
   @keyframes dual-pulse {
     70% { box-shadow: 0 0 0 0.32em rgb(130 167 255 / 0); }
     100% { box-shadow: 0 0 0 0 rgb(130 167 255 / 0); }
   }
-  @keyframes dual-spin { to { transform: rotate(360deg); } }
   @media (prefers-reduced-motion: reduce) {
     .subtitle-card { transition: none; }
-    .preparation::before { animation: none; }
   }
   [hidden] { display: none !important; }
 `;
