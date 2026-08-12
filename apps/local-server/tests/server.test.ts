@@ -32,7 +32,7 @@ describe('routes Fastify', () => {
     for (const application of applications.splice(0)) await application.close();
   });
 
-  async function setup(provider?: TranslationProvider) {
+  async function setup(provider?: TranslationProvider, config: ServerConfig = TEST_CONFIG) {
     const database = new DatabaseConnection(':memory:');
     const defaultProvider: TranslationProvider = {
       name: 'fake',
@@ -42,7 +42,7 @@ describe('routes Fastify', () => {
       },
     };
     const app = await buildServer({
-      config: TEST_CONFIG,
+      config,
       database,
       provider: provider ?? defaultProvider,
       logger: false,
@@ -64,6 +64,22 @@ describe('routes Fastify', () => {
       version: '1.0.0',
     });
     expect(response.body).not.toContain('test-key');
+  });
+
+  it('limite globalement les requêtes sur toutes les routes', async () => {
+    const { app } = await setup(undefined, { ...TEST_CONFIG, rateLimitMax: 1 });
+    const first = await app.inject({ method: 'GET', url: '/health' });
+    const limited = await app.inject({ method: 'GET', url: '/stats' });
+
+    expect(first.statusCode).toBe(200);
+    expect(limited.statusCode).toBe(429);
+    expect(limited.json()).toEqual({
+      error: {
+        code: 'LOCAL_RATE_LIMIT',
+        message: 'Trop de requêtes vers le serveur local.',
+        retryable: true,
+      },
+    });
   });
 
   it('valide puis traduit une ligne et expose les statistiques', async () => {

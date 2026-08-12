@@ -274,15 +274,26 @@ async function setupEverything(): Promise<InstallResult> {
     return { ok: true };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
+    const occurredAt = new Date().toISOString();
     lastSetupError = {
-      occurredAt: new Date().toISOString(),
+      occurredAt,
       stage,
-      message,
-      technicalDetails: error instanceof Error ? (error.stack ?? error.message) : String(error),
+      message: message.slice(0, 300),
+      technicalDetails: readableDiagnosticError(error),
     };
-    await writeFile(setupErrorPath(), `${JSON.stringify(lastSetupError, null, 2)}\n`, 'utf8').catch(
-      () => undefined,
-    );
+    // Persist only a fixed summary. Network and process errors can contain local paths,
+    // URLs or upstream text; their bounded details remain in memory until the app exits.
+    const persistedFailure: SetupFailure = {
+      occurredAt,
+      stage,
+      message: setupFailureSummary(stage),
+      technicalDetails: 'Les détails techniques n’ont pas été conservés sur le disque.',
+    };
+    await writeFile(
+      setupErrorPath(),
+      `${JSON.stringify(persistedFailure, null, 2)}\n`,
+      'utf8',
+    ).catch(() => undefined);
     sendProgress(message);
     return { ok: false, error: message };
   } finally {
@@ -623,6 +634,17 @@ function finiteNumber(value: unknown): number | null {
 
 function readableDiagnosticError(error: unknown): string {
   return (error instanceof Error ? error.message : String(error)).slice(0, 300);
+}
+
+function setupFailureSummary(stage: SetupStage): string {
+  const summaries: Record<SetupStage, string> = {
+    download: 'Le téléchargement d’Ollama a échoué.',
+    signature: 'La vérification de la signature d’Ollama a échoué.',
+    install: 'L’installation d’Ollama a échoué.',
+    start: 'Le démarrage d’Ollama a échoué.',
+    model: 'L’installation du modèle Hy-MT2 a échoué.',
+  };
+  return summaries[stage];
 }
 
 async function openExtensionsPage(browser: 'chrome' | 'edge'): Promise<void> {
