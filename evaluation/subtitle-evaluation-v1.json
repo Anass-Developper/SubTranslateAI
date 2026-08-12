@@ -1,0 +1,177 @@
+{
+  "schemaVersion": "1.0",
+  "corpusId": "synthetic-fr-zh-en-dialogue-v1",
+  "corpusLicense": "Apache-2.0",
+  "examples": [
+    {
+      "id": "politeness-window",
+      "sourceLanguage": "en",
+      "sourceText": "Could you close the window, please?",
+      "references": {
+        "en": "Could you close the window, please?",
+        "fr": "Pourriez-vous fermer la fenêtre, s’il vous plaît ?",
+        "zhHans": "请您把窗户关上，好吗？"
+      },
+      "difficulty": "politeness",
+      "note": "Preserve a polite request rather than translating it as an order.",
+      "provenance": {
+        "origin": "synthetic",
+        "author": "Krzysztof Skomra",
+        "license": "Apache-2.0"
+      }
+    },
+    {
+      "id": "negation-message",
+      "sourceLanguage": "fr",
+      "sourceText": "Je n’ai pas encore reçu ton message.",
+      "references": {
+        "en": "I haven't received your message yet.",
+        "fr": "Je n’ai pas encore reçu ton message.",
+        "zhHans": "我还没有收到你的消息。"
+      },
+      "difficulty": "negation",
+      "note": "Keep both the negation and the meaning of 'yet'.",
+      "provenance": {
+        "origin": "synthetic",
+        "author": "Krzysztof Skomra",
+        "license": "Apache-2.0"
+      }
+    },
+    {
+      "id": "question-availability",
+      "sourceLanguage": "zh-Hans",
+      "sourceText": "你明天有空吗？",
+      "references": {
+        "en": "Are you free tomorrow?",
+        "fr": "Es-tu libre demain ?",
+        "zhHans": "你明天有空吗？"
+      },
+      "difficulty": "context",
+      "note": "Interpret 有空 as availability, not physical emptiness.",
+      "provenance": {
+        "origin": "synthetic",
+        "author": "Krzysztof Skomra",
+        "license": "Apache-2.0"
+      }
+    },
+    {
+      "id": "reported-negation-train",
+      "sourceLanguage": "en",
+      "sourceText": "I thought you said the train was not late.",
+      "references": {
+        "en": "I thought you said the train was not late.",
+        "fr": "Je pensais que tu avais dit que le train n’était pas en retard.",
+        "zhHans": "我以为你说火车没有晚点。"
+      },
+      "difficulty": "negation",
+      "note": "Retain negation inside reported speech.",
+      "provenance": {
+        "origin": "synthetic",
+        "author": "Krzysztof Skomra",
+        "license": "Apache-2.0"
+      }
+    },
+    {
+      "id": "idiom-agreement",
+      "sourceLanguage": "fr",
+      "sourceText": "Ça marche, on se retrouve devant la gare.",
+      "references": {
+        "en": "Sounds good, we'll meet in front of the station.",
+        "fr": "Ça marche, on se retrouve devant la gare.",
+        "zhHans": "好，就这么定了，我们在火车站前面见。"
+      },
+      "difficulty": "idiom",
+      "note": "Translate Ça marche as agreement rather than literal movement.",
+      "provenance": {
+        "origin": "synthetic",
+        "author": "Krzysztof Skomra",
+        "license": "Apache-2.0"
+      }
+    },
+    {
+      "id": "reassurance-return",
+      "sourceLanguage": "zh-Hans",
+      "sourceText": "别担心，我马上回来。",
+      "references": {
+        "en": "Don't worry, I'll be right back.",
+        "fr": "Ne t’inquiète pas, je reviens tout de suite.",
+        "zhHans": "别担心，我马上回来。"
+      },
+      "difficulty": "context",
+      "note": "Preserve the reassurance and immediate-return meaning.",
+      "provenance": {
+        "origin": "synthetic",
+        "author": "Krzysztof Skomra",
+        "license": "Apache-2.0"
+      }
+    },
+    {
+      "id": "context-financial-bank",
+      "sourceLanguage": "en",
+      "sourceText": "She left the bank before noon.",
+      "references": {
+        "en": "She left the bank before noon.",
+        "fr": "Elle a quitté la banque avant midi.",
+        "zhHans": "她中午前离开了银行。"
+      },
+      "difficulty": "context",
+      "note": "Bank means a financial institution in this example, not a river bank.",
+      "provenance": {
+        "origin": "synthetic",
+        "author": "Krzysztof Skomra",
+        "license": "Apache-2.0"
+      }
+    },
+    {
+      "id": "politeness-wait",
+      "sourceLanguage": "fr",
+      "sourceText": "Vous pouvez patienter un instant ?",
+      "references": {
+        "en": "Could you wait a moment?",
+        "fr": "Vous pouvez patienter un instant ?",
+        "zhHans": "您可以稍等一下吗？"
+      },
+      "difficulty": "politeness",
+      "note": "Preserve the formal, polite register.",
+      "provenance": {
+        "origin": "synthetic",
+        "author": "Krzysztof Skomra",
+        "license": "Apache-2.0"
+      }
+    },
+    {
+      "id": "emphatic-negation-spicy",
+      "sourceLanguage": "zh-Hans",
+      "sourceText": "这道菜一点儿也不辣。",
+      "references": {
+        "en": "This dish is not spicy at all.",
+        "fr": "Ce plat n’est pas du tout épicé.",
+        "zhHans": "这道菜一点儿也不辣。"
+      },
+      "difficulty": "negation",
+      "note": "Preserve the emphatic 'not at all' construction.",
+      "provenance": {
+        "origin": "synthetic",
+        "author": "Krzysztof Skomra",
+        "license": "Apache-2.0"
+      }
+    },
+    {
+      "id": "reported-future-call",
+      "sourceLanguage": "en",
+      "sourceText": "He said he would call after the meeting.",
+      "references": {
+        "en": "He said he would call after the meeting.",
+        "fr": "Il a dit qu’il appellerait après la réunion.",
+        "zhHans": "他说他会在会议结束后打电话。"
+      },
+      "difficulty": "context",
+      "note": "Preserve the reported future action and event ordering.",
+      "provenance": {
+        "origin": "synthetic",
+        "author": "Krzysztof Skomra",
+        "license": "Apache-2.0"
+      }
+    }
+  ]
+}
