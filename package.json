@@ -2,7 +2,7 @@
   "name": "dual-subtitles",
   "version": "1.0.0",
   "private": true,
-  "description": "Double sous-titrage français–chinois simplifié dans Chrome et Edge.",
+  "description": "Local AI dual subtitles for French, Chinese and English on Chrome and Edge.",
   "type": "module",
   "workspaces": [
     "apps/extension",
@@ -42,5 +42,5 @@
     "typescript": "^5.8.2",
     "typescript-eslint": "^8.26.0"
   },
-  "license": "SEE LICENSE IN LICENSE"
+  "license": "Apache-2.0"
 }

@@ -1,106 +1,59 @@
-# Publier une mise à jour Windows sans publier le code source
+# Publier une mise à jour Windows
 
-SubTranslateAI utilise deux dépôts GitHub séparés :
+SubTranslateAI utilise deux dépôts publics séparés :
 
-- `SubTranslateAI-source`, **privé**, contient tout le projet et le workflow de build ;
-- `SubTranslateAI-releases`, **public**, contient seulement un README minimal et les
-  Releases téléchargeables par l’application.
+- `SubTranslateAI` contient le code source et le workflow de construction ;
+- `SubTranslateAI-Releases` contient uniquement les installateurs et les métadonnées utilisées par la mise à jour automatique.
 
-Ne rendez jamais le dépôt source public. GitHub joint automatiquement aux Releases les
-archives du dépôt qui les héberge : les Releases doivent donc être créées uniquement
-dans le dépôt public minimal.
+Cette séparation garde un canal de téléchargement simple et empêche les archives automatiques du dépôt source d'apparaître à côté des installateurs.
 
-## 1. Créer le dépôt public de diffusion
+## Configuration GitHub
 
-Créez un dépôt GitHub public nommé `SubTranslateAI-releases` avec un simple README, par
-exemple :
-
-```markdown
-# SubTranslateAI — téléchargements
-
-Ce dépôt contient uniquement les installateurs officiels et les fichiers nécessaires
-aux mises à jour automatiques. Le code source de SubTranslateAI n'est pas publié ici.
-```
-
-N’ajoutez jamais le projet, une archive du projet, un fichier `.env`, une clé ou un
-secret dans ce dépôt.
-
-## 2. Créer le jeton de publication
-
-Dans les paramètres GitHub du compte, créez un **fine-grained personal access token** :
-
-- accès limité uniquement à `SubTranslateAI-releases` ;
-- permission du dépôt `Contents: Read and write` ;
-- durée d’expiration courte, puis renouvelez-le lorsqu’elle arrive à échéance.
-
-Dans le dépôt source privé, ouvrez **Settings > Secrets and variables > Actions** puis
-ajoutez :
+Dans les paramètres du dépôt source, créez :
 
 | Type     | Nom                   | Valeur                                     |
 | -------- | --------------------- | ------------------------------------------ |
-| Variable | `RELEASES_REPOSITORY` | `proprietaire/SubTranslateAI-releases`     |
-| Secret   | `RELEASES_TOKEN`      | le jeton finement limité créé précédemment |
+| Variable | `RELEASES_REPOSITORY` | `Anass-Developper/SubTranslateAI-Releases` |
+| Secret   | `RELEASES_TOKEN`      | un jeton limité au dépôt de releases       |
 
-Le jeton reste exclusivement dans les secrets GitHub Actions. Il ne doit jamais être
-placé dans le code, l’installateur ou l’application installée.
+Le jeton finement limité doit avoir uniquement `Contents: Read and write` sur `SubTranslateAI-Releases`. Donnez-lui une durée d'expiration et renouvelez-le avant son échéance. Il ne doit jamais être placé dans le code, l'installateur ou un diagnostic.
 
-## 3. Publier la première version
+## Publier une version
 
-1. Vérifiez que la version de `apps/desktop/package.json` est la bonne.
-2. Exécutez `npm run check`.
-3. Créez un tag strictement identique à cette version, avec le préfixe `v`.
-4. Poussez le tag vers le dépôt source privé.
+1. Augmentez `version` dans `apps/desktop/package.json`.
+2. Ajoutez les changements utilisateur dans `CHANGELOG.md`.
+3. Exécutez `npm run check`.
+4. Committez et poussez les changements sur `main`.
+5. Créez un tag strictement identique à la version avec le préfixe `v`, puis poussez-le.
 
-Exemple pour la version `1.1.0` :
+Exemple :
 
 ```powershell
-git tag v1.1.0
-git push origin v1.1.0
+git tag v1.2.0
+git push origin v1.2.0
 ```
 
-Le workflow `.github/workflows/release-windows.yml` exécute les tests, construit
-l’installateur avec l’URL du dépôt public, puis y publie :
+Le workflow `.github/workflows/release-windows.yml` revérifie le projet, construit l'installateur avec l'URL du canal public, puis publie ensemble :
 
 - `SubTranslateAI-Setup-<version>.exe` ;
 - `SubTranslateAI-Setup-<version>.exe.blockmap` ;
 - `latest.yml`.
 
-La licence propriétaire est copiée dans les ressources de l’application installée.
-
-Le workflow s’arrête avant la publication si le secret manque, si le nom du dépôt est
-incorrect ou si le tag ne correspond pas à la version de l’application.
-
-## 4. Publier les versions suivantes
-
-1. Modifiez le logiciel dans le dépôt privé.
-2. Augmentez `version` dans `apps/desktop/package.json`.
-3. Exécutez `npm run check`.
-4. Créez et poussez le nouveau tag.
-
-Ne réutilisez jamais un numéro : l’auto-update n’installe que les versions strictement
-supérieures à celle déjà présente.
+Le workflow s'arrête si le secret manque, si le dépôt cible est invalide ou si le tag ne correspond pas à la version de l'application. Ne réutilisez jamais un numéro de version ou un tag.
 
 ## Construction locale
 
-Pour construire manuellement un installateur connecté au dépôt public :
-
 ```powershell
-$env:RELEASES_REPOSITORY = 'proprietaire/SubTranslateAI-releases'
+$env:RELEASES_REPOSITORY = 'Anass-Developper/SubTranslateAI-Releases'
 npm run package:windows
 ```
 
-Pour utiliser un autre hébergeur HTTPS statique :
+Avant toute publication manuelle, vérifiez `release/desktop/latest.yml` et téléversez toujours l'installateur, son `.blockmap` et `latest.yml` dans la même release.
 
-```powershell
-$env:SUBTRANSLATE_UPDATE_URL = 'https://exemple.fr/subtranslateai/updates'
-npm run package:windows
-```
+## Sécurité de la chaîne de publication
 
-Dans les deux cas, vérifiez le fichier `release/desktop/latest.yml` et téléversez
-ensemble l’installateur, son `.blockmap` et `latest.yml`.
-
-## Limite de confidentialité
-
-Le dépôt public ne révèle pas le dépôt source, mais l’installateur reste téléchargeable
-par toute personne connaissant son adresse. Un programme Electron peut être analysé :
-ce schéma protège le code source original, pas contre toute rétro-ingénierie.
+- protégez le compte GitHub avec une clé d'accès ou une authentification à deux facteurs ;
+- ne lancez une release que depuis un commit vérifié sur `main` ;
+- examinez les mises à jour Dependabot avant de les fusionner ;
+- révoquez immédiatement `RELEASES_TOKEN` s'il apparaît ailleurs que dans GitHub Actions ;
+- signez l'installateur Windows dès qu'un certificat de signature de code est disponible.

@@ -1,0 +1,64 @@
+name: Bug report
+description: Report a reproducible problem in the app or browser extension
+title: '[Bug]: '
+labels: ['bug', 'needs-triage']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve SubTranslateAI. Do not report security vulnerabilities here; use the private Security form instead.
+  - type: input
+    id: version
+    attributes:
+      label: SubTranslateAI version
+      placeholder: '1.1.4'
+    validations:
+      required: true
+  - type: dropdown
+    id: browser
+    attributes:
+      label: Browser
+      options:
+        - Chrome
+        - Microsoft Edge
+        - Not browser-related
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: website
+    attributes:
+      label: Website
+      description: Leave blank if the problem is not tied to a video website.
+      placeholder: 'YouTube, Netflix, Prime Video…'
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open …
+        2. Select …
+        3. Observe …
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostic
+    attributes:
+      label: Diagnostic report
+      description: Paste the diagnostic copied by the app after removing anything you do not want to share.
+      render: json
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I searched existing issues.
+          required: true
+        - label: I did not include credentials or copyrighted subtitle files.
+          required: true

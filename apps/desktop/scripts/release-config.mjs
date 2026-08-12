@@ -6,8 +6,8 @@ export function resolveUpdateUrl(environment) {
     return url.toString().replace(/\/$/u, '');
   }
 
-  // Never fall back to GITHUB_REPOSITORY: that repository contains the private
-  // sources. Updates must come from the separate, binary-only repository.
+  // Never fall back to GITHUB_REPOSITORY. Updates must come from the dedicated,
+  // binary-only repository so latest.yml and the installer stay together.
   const repository = environment.RELEASES_REPOSITORY?.trim();
   if (repository && /^[\w.-]+\/[\w.-]+$/u.test(repository)) {
     return `https://github.com/${repository}/releases/latest/download`;

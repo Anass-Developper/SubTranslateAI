@@ -10,7 +10,7 @@ const integerFromEnvironment = (fallback: number) =>
 
 const EnvironmentSchema = z.object({
   OPENCODE_GO_API_KEY: z.string().trim().optional().default(''),
-  TRANSLATION_PROVIDER: z.enum(['opencode', 'ollama', 'hybrid']).default('opencode'),
+  TRANSLATION_PROVIDER: z.enum(['opencode', 'ollama', 'hybrid']).default('ollama'),
   OLLAMA_ENDPOINT: z
     .string()
     .url()

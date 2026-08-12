@@ -10,7 +10,7 @@ describe('resolveUpdateUrl', () => {
   });
 
   it('ne publie jamais implicitement depuis le dépôt source', () => {
-    expect(resolveUpdateUrl({ GITHUB_REPOSITORY: 'anass/SubTranslateAI-source' })).toBe('');
+    expect(resolveUpdateUrl({ GITHUB_REPOSITORY: 'anass/SubTranslateAI' })).toBe('');
     expect(resolveUpdateUrl({ RELEASES_REPOSITORY: 'nom invalide' })).toBe('');
   });
 

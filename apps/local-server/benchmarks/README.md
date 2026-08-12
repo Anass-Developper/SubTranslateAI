@@ -42,7 +42,4 @@ les exécutions supplémentaires sont dans `qwen35-results.json` et
 
 ## Décision
 
-Le réglage retenu est `hybrid` avec Hy-MT2 7B Q4 : traduction locale par défaut et
-OpenCode Go uniquement si Ollama est indisponible ou si la sortie échoue aux validations
-techniques. Pour une confidentialité absolue, utiliser `TRANSLATION_PROVIDER=ollama` ;
-pour la meilleure qualité moyenne observée, utiliser `TRANSLATION_PROVIDER=opencode`.
+Ces résultats historiques ont servi à choisir Hy-MT2 7B Q4 pour l’application officielle : il offre le meilleur compromis local observé entre fidélité, latence et mémoire. La version distribuée utilise `TRANSLATION_PROVIDER=ollama` uniquement. Les fournisseurs distants restent du code expérimental de développement et ne font pas partie du produit pris en charge.
