@@ -31,18 +31,12 @@ for (const [index, example] of corpus.examples.entries()) {
   assert(!ids.has(example.id), `${prefix}.id must be unique`);
   ids.add(example.id);
 
-  assert(
-    allowedSourceLanguages.has(example.sourceLanguage),
-    `${prefix}.sourceLanguage is invalid`,
-  );
+  assert(allowedSourceLanguages.has(example.sourceLanguage), `${prefix}.sourceLanguage is invalid`);
   assert(
     typeof example.sourceText === 'string' && example.sourceText.trim().length > 0,
     `${prefix}.sourceText is required`,
   );
-  assert(
-    allowedDifficulties.has(example.difficulty),
-    `${prefix}.difficulty is invalid`,
-  );
+  assert(allowedDifficulties.has(example.difficulty), `${prefix}.difficulty is invalid`);
   assert(
     typeof example.note === 'string' && example.note.trim().length > 0,
     `${prefix}.note is required`,
@@ -64,8 +58,7 @@ for (const [index, example] of corpus.examples.entries()) {
 
   assert(example.provenance?.origin === 'synthetic', `${prefix}.provenance.origin is invalid`);
   assert(
-    typeof example.provenance?.author === 'string' &&
-      example.provenance.author.trim().length > 0,
+    typeof example.provenance?.author === 'string' && example.provenance.author.trim().length > 0,
     `${prefix}.provenance.author is required`,
   );
   assert(
