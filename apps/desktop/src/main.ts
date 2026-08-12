@@ -760,6 +760,7 @@ async function shutdown(): Promise<void> {
   if (quitting) return;
   quitting = true;
   if (server) await server.close().catch(() => undefined);
+  await disableOllamaLaunchAtLogin();
   if (ollamaServerProcess && !ollamaServerProcess.killed) ollamaServerProcess.kill();
   await stopOllamaProcesses(findOllamaExecutable(), MODEL);
   ollamaServerProcess = null;

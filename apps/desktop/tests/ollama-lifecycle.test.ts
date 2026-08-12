@@ -55,15 +55,28 @@ describe('arrêt d’Ollama', () => {
     expect(ollamaShutdownCommands(null, 'model', 'win32', 'C:\\Windows')).toHaveLength(3);
   });
 
-  it('désactive le raccourci de démarrage Ollama sans le perdre', async () => {
+  it('supprime le raccourci de démarrage Ollama et l’ancien fichier .disabled', async () => {
+    const appData = await mkdtemp(join(tmpdir(), 'subtranslate-ollama-startup-'));
+    temporaryDirectories.push(appData);
+    const paths = ollamaStartupShortcutPaths(appData);
+    await mkdir(dirname(paths.active), { recursive: true });
+    await writeFile(paths.active, 'raccourci actif');
+    await writeFile(paths.disabled, 'ancien raccourci renommé');
+
+    await expect(disableOllamaLaunchAtLogin(appData, 'win32')).resolves.toBe(true);
+    await expect(disableOllamaLaunchAtLogin(appData, 'win32')).resolves.toBe(false);
+    await expect(readFile(paths.active, 'utf8')).rejects.toMatchObject({ code: 'ENOENT' });
+    await expect(readFile(paths.disabled, 'utf8')).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
+  it('ne touche pas au dossier de démarrage sur une autre plateforme', async () => {
     const appData = await mkdtemp(join(tmpdir(), 'subtranslate-ollama-startup-'));
     temporaryDirectories.push(appData);
     const paths = ollamaStartupShortcutPaths(appData);
     await mkdir(dirname(paths.active), { recursive: true });
     await writeFile(paths.active, 'raccourci de test');
 
-    await expect(disableOllamaLaunchAtLogin(appData, 'win32')).resolves.toBe(true);
-    await expect(disableOllamaLaunchAtLogin(appData, 'win32')).resolves.toBe(false);
-    await expect(readFile(paths.disabled, 'utf8')).resolves.toBe('raccourci de test');
+    await expect(disableOllamaLaunchAtLogin(appData, 'linux')).resolves.toBe(false);
+    await expect(readFile(paths.active, 'utf8')).resolves.toBe('raccourci de test');
   });
 });

@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { rename, rm } from 'node:fs/promises';
+import { rm } from 'node:fs/promises';
 import { join } from 'node:path';
 
 export interface ShutdownCommand {
@@ -62,14 +62,17 @@ export async function disableOllamaLaunchAtLogin(
 ): Promise<boolean> {
   if (platform !== 'win32' || !appData) return false;
   const paths = ollamaStartupShortcutPaths(appData);
-  try {
-    await rename(paths.active, paths.disabled);
-    return true;
-  } catch (error) {
-    if (!hasErrorCode(error, 'EEXIST')) return false;
-    await rm(paths.active, { force: true }).catch(() => undefined);
-    return true;
-  }
+  const removals = await Promise.all(
+    [paths.active, paths.disabled].map(async (path) => {
+      try {
+        await rm(path);
+        return true;
+      } catch {
+        return false;
+      }
+    }),
+  );
+  return removals.some(Boolean);
 }
 
 async function runIgnoringFailure(command: ShutdownCommand, timeoutMs: number): Promise<void> {
@@ -93,13 +96,4 @@ async function runIgnoringFailure(command: ShutdownCommand, timeoutMs: number): 
     child.once('error', finish);
     child.once('exit', finish);
   });
-}
-
-function hasErrorCode(error: unknown, code: string): boolean {
-  return (
-    typeof error === 'object' &&
-    error !== null &&
-    'code' in error &&
-    (error as { code?: unknown }).code === code
-  );
 }

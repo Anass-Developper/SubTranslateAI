@@ -4,6 +4,11 @@ All notable user-facing changes are documented here.
 
 ## [Unreleased]
 
+## [1.1.6] - 2026-08-12
+
+- Fixed Windows trying to open the legacy `Ollama.lnk.disabled` file at login.
+- Remove Ollama startup shortcuts after installation, on app startup and on shutdown.
+
 ## [1.1.5] - 2026-08-12
 
 - Open-sourced the project under Apache-2.0.
