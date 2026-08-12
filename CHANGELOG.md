@@ -7,6 +7,8 @@ All notable user-facing changes are documented here.
 - Open-sourced the project under Apache-2.0.
 - Added public security, privacy and contribution documentation.
 - Made Ollama the default provider for development installs.
+- Minimized setup errors persisted on disk and redacted personal paths from copied diagnostics.
+- Added an integration test proving that the local API rate limit applies globally.
 
 ## [1.1.4] - 2026-08-09
 

@@ -19,6 +19,7 @@ import type {
   SaveControlSettingsInput,
   UpdateStatus,
 } from './contracts.js';
+import { redactDiagnosticText } from './diagnostic-redaction.js';
 import {
   downloadOllamaInstaller,
   runOllamaInstaller,
@@ -540,35 +541,40 @@ async function copyDiagnostics(): Promise<void> {
     })),
   ]);
   const processors = cpus();
-  clipboard.writeText(
-    JSON.stringify(
-      {
-        app: 'SubTranslateAI',
-        diagnosticFormatVersion: 2,
-        generatedAt: new Date().toISOString(),
-        version: app.getVersion(),
-        platform: process.platform,
-        arch: process.arch,
-        electron: process.versions.electron,
-        system: {
-          cpuModel: processors[0]?.model ?? null,
-          logicalProcessors: processors.length,
-          totalMemoryBytes: totalmem(),
-          freeMemoryBytes: freemem(),
-          systemUptimeSeconds: Math.floor(uptime()),
-          gpu,
-        },
-        status,
-        ollamaRuntime,
-        serverTechnicalError,
-        lastSetupError,
-        update: updateStatus(),
-        settings: controls.serverSettings,
-        stats: serverStats ?? controls.stats,
+  const diagnosticJson = JSON.stringify(
+    {
+      app: 'SubTranslateAI',
+      diagnosticFormatVersion: 2,
+      generatedAt: new Date().toISOString(),
+      version: app.getVersion(),
+      platform: process.platform,
+      arch: process.arch,
+      electron: process.versions.electron,
+      system: {
+        cpuModel: processors[0]?.model ?? null,
+        logicalProcessors: processors.length,
+        totalMemoryBytes: totalmem(),
+        freeMemoryBytes: freemem(),
+        systemUptimeSeconds: Math.floor(uptime()),
+        gpu,
       },
-      null,
-      2,
-    ),
+      status,
+      ollamaRuntime,
+      serverTechnicalError,
+      lastSetupError,
+      update: updateStatus(),
+      settings: controls.serverSettings,
+      stats: serverStats ?? controls.stats,
+    },
+    null,
+    2,
+  );
+  clipboard.writeText(
+    redactDiagnosticText(diagnosticJson, [
+      { value: app.getPath('userData'), replacement: '<APP_DATA>' },
+      { value: app.getPath('temp'), replacement: '<TEMP>' },
+      { value: app.getPath('home'), replacement: '<USER_HOME>' },
+    ]),
   );
   sendProgress('Diagnostic copié dans le presse-papiers.');
 }
