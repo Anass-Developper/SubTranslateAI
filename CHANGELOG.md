@@ -4,6 +4,8 @@ All notable user-facing changes are documented here.
 
 ## [Unreleased]
 
+## [1.1.5] - 2026-08-12
+
 - Open-sourced the project under Apache-2.0.
 - Added public security, privacy and contribution documentation.
 - Made Ollama the default provider for development installs.
