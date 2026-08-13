@@ -1,0 +1,11 @@
+{
+  "appName": {
+    "message": "Dual subtitles FR / 中文"
+  },
+  "appDescription": {
+    "message": "Displays French and Chinese subtitles simultaneously using a local server."
+  },
+  "toggleCommandDescription": {
+    "message": "Enable or disable dual subtitles"
+  }
+}

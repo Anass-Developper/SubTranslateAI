@@ -1,7 +1,7 @@
 import type { ExtensionSettings, PlatformId } from "./types";
 
 export const STORAGE_KEY = "dualSubtitlesSettings";
-const CURRENT_SETTINGS_VERSION = 6;
+const CURRENT_SETTINGS_VERSION = 7;
 const LATENCY_SETTINGS_VERSION = 2;
 
 export const DEFAULT_EXTENSION_SETTINGS: ExtensionSettings = {
@@ -17,6 +17,7 @@ export const DEFAULT_EXTENSION_SETTINGS: ExtensionSettings = {
     generic: true,
   },
   serverUrl: "http://127.0.0.1:47831",
+  interfaceLocale: "auto",
   languageOrder: "fr-first",
   subtitleDisplayMode: "both",
   fontSize: 30,
@@ -50,6 +51,10 @@ export function mergeSettings(value?: Partial<ExtensionSettings> | null): Extens
       value?.subtitleDisplayMode === "fr-only" || value?.subtitleDisplayMode === "zh-only"
         ? value.subtitleDisplayMode
         : "both",
+    interfaceLocale:
+      value?.interfaceLocale === "fr" || value?.interfaceLocale === "en"
+        ? value.interfaceLocale
+        : "auto",
     pauseOnInitialWarmup:
       typeof value?.pauseOnInitialWarmup === "boolean" ? value.pauseOnInitialWarmup : true,
     settingsVersion: CURRENT_SETTINGS_VERSION,

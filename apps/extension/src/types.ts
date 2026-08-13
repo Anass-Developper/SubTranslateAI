@@ -6,6 +6,7 @@ export type PlatformId =
 
 export type LanguageOrder = "fr-first" | "zh-first";
 export type SubtitleDisplayMode = "both" | "fr-only" | "zh-only";
+export type InterfaceLocale = "auto" | "fr" | "en";
 
 export interface PlatformSettings {
   youtube: boolean;
@@ -22,6 +23,7 @@ export interface ExtensionSettings {
   enabled: boolean;
   platforms: PlatformSettings;
   serverUrl: string;
+  interfaceLocale: InterfaceLocale;
   languageOrder: LanguageOrder;
   subtitleDisplayMode: SubtitleDisplayMode;
   fontSize: number;

@@ -11,6 +11,7 @@ await rm(outDir, { recursive: true, force: true });
 await mkdir(outDir, { recursive: true });
 await copyFile(resolve(extensionRoot, "manifest.json"), resolve(outDir, "manifest.json"));
 await cp(resolve(extensionRoot, "icons"), resolve(outDir, "icons"), { recursive: true });
+await cp(resolve(extensionRoot, "_locales"), resolve(outDir, "_locales"), { recursive: true });
 
 const common = {
   configFile: false,

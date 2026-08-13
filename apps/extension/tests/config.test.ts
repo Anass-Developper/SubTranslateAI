@@ -38,7 +38,7 @@ describe("migration des réglages de latence", () => {
         requestTimeoutMs: 60_000,
       }),
     ).toMatchObject({
-      settingsVersion: 6,
+      settingsVersion: 7,
       debounceMs: 180,
       fragmentWindowMs: 220,
       requestTimeoutMs: 60_000,
@@ -57,7 +57,7 @@ describe("migration des réglages de latence", () => {
     } as unknown as Parameters<typeof mergeSettings>[0];
 
     expect(mergeSettings(legacySettings)).toMatchObject({
-      settingsVersion: 6,
+      settingsVersion: 7,
       platforms: {
         youtube: false,
         netflix: true,
@@ -71,15 +71,25 @@ describe("migration des réglages de latence", () => {
 
   it("active les deux langues par défaut pour les anciens réglages", () => {
     expect(mergeSettings({ settingsVersion: 4 })).toMatchObject({
-      settingsVersion: 6,
+      settingsVersion: 7,
       subtitleDisplayMode: "both",
       pauseOnInitialWarmup: true,
     });
   });
 
   it("préserve le choix explicite de ne pas mettre la vidéo en pause", () => {
-    expect(mergeSettings({ settingsVersion: 6, pauseOnInitialWarmup: false })).toMatchObject({
+    expect(mergeSettings({ settingsVersion: 7, pauseOnInitialWarmup: false })).toMatchObject({
       pauseOnInitialWarmup: false,
+    });
+  });
+
+  it("utilise la détection automatique et préserve un choix manuel d'interface", () => {
+    expect(mergeSettings({ settingsVersion: 6 })).toMatchObject({
+      settingsVersion: 7,
+      interfaceLocale: "auto",
+    });
+    expect(mergeSettings({ settingsVersion: 7, interfaceLocale: "en" })).toMatchObject({
+      interfaceLocale: "en",
     });
   });
 });

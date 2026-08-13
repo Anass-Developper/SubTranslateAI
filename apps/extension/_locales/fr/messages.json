@@ -1,0 +1,11 @@
+{
+  "appName": {
+    "message": "Sous-titres doubles FR / 中文"
+  },
+  "appDescription": {
+    "message": "Affiche simultanément des sous-titres français et chinois via un serveur local."
+  },
+  "toggleCommandDescription": {
+    "message": "Activer ou désactiver les sous-titres doubles"
+  }
+}
