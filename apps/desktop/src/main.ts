@@ -20,6 +20,7 @@ import type {
   UpdateStatus,
 } from './contracts.js';
 import { redactDiagnosticText } from './diagnostic-redaction.js';
+import { isInterfaceLanguage, resolveInterfaceLocale, translate, type MessageKey } from './i18n.js';
 import {
   downloadOllamaInstaller,
   runOllamaInstaller,
@@ -49,6 +50,7 @@ if (smokeTest && smokeDataDirectory) {
 }
 
 type SetupStage = 'download' | 'signature' | 'install' | 'start' | 'model';
+type ServerErrorKey = 'serverReused' | 'serverStartFailed' | 'appStartFailed';
 
 interface SetupFailure {
   occurredAt: string;
@@ -60,7 +62,7 @@ interface SetupFailure {
 let mainWindow: BrowserWindow | null = null;
 let server: FastifyInstance | null = null;
 let serverReady = false;
-let serverError: string | null = null;
+let serverErrorKey: ServerErrorKey | null = null;
 let serverTechnicalError: string | null = null;
 let lastSetupError: SetupFailure | null = null;
 let setupBusy = false;
@@ -96,7 +98,7 @@ if (!app.requestSingleInstanceLock()) {
     })
     .catch((error: unknown) => {
       console.error('[SubTranslateAI] Initialisation impossible.', error);
-      serverError = error instanceof Error ? error.message : String(error);
+      serverErrorKey = 'appStartFailed';
     });
 }
 
@@ -121,7 +123,7 @@ async function startServer(): Promise<void> {
     server = await buildServer({ config });
     await server.listen({ host: config.host, port: config.port });
     serverReady = true;
-    serverError = null;
+    serverErrorKey = null;
     serverTechnicalError = null;
   } catch (error) {
     console.error("[SubTranslateAI] Le serveur local n'a pas pu démarrer.", error);
@@ -129,11 +131,10 @@ async function startServer(): Promise<void> {
     if (await existingServerIsHealthy()) {
       server = null;
       serverReady = true;
-      serverError = 'Un serveur SubTranslateAI déjà lancé est réutilisé.';
+      serverErrorKey = 'serverReused';
       return;
     }
-    serverError =
-      'Le serveur local n’a pas pu démarrer. Ouvre Aide puis copie le diagnostic pour obtenir les détails.';
+    serverErrorKey = 'serverStartFailed';
     if (server) await server.close().catch(() => undefined);
     server = null;
   }
@@ -213,6 +214,7 @@ async function initializeUpdates(): Promise<void> {
     currentVersion: app.getVersion(),
     updateUrl,
     packaged: app.isPackaged,
+    locale: activeLocale(),
     notify: (status) => mainWindow?.webContents.send('desktop:update-status', status),
   });
   updateManager.setEnabled(preferences.automaticUpdates);
@@ -223,7 +225,7 @@ async function getStatus(): Promise<DesktopStatus> {
   const tags = await fetchOllamaTags();
   return {
     serverReady,
-    serverError,
+    serverError: serverErrorKey ? translate(activeLocale(), serverErrorKey) : null,
     ollamaReachable: tags !== null,
     ollamaInstalled: ollamaExecutable !== null,
     modelInstalled: tags?.some((name) => name === MODEL) ?? false,
@@ -235,35 +237,36 @@ async function getStatus(): Promise<DesktopStatus> {
 }
 
 async function setupEverything(): Promise<InstallResult> {
-  if (setupBusy) return { ok: false, error: 'Une installation est déjà en cours.' };
+  if (setupBusy) return { ok: false, error: translate(activeLocale(), 'setupAlreadyRunning') };
   setupBusy = true;
   let stage: SetupStage = 'download';
   try {
     let executable = findOllamaExecutable();
     if (!executable) {
-      sendProgress('Téléchargement officiel d’Ollama…');
+      sendProgressMessage('ollamaDownloadOfficial');
       const installerPath = join(app.getPath('temp'), 'SubTranslateAI-OllamaSetup.exe');
       try {
         await downloadOllamaInstaller(installerPath, (percent) => {
           sendProgress(
             percent === null
-              ? 'Téléchargement officiel d’Ollama…'
-              : `Téléchargement d’Ollama : ${Math.round(percent)} %`,
+              ? translate(activeLocale(), 'ollamaDownloadOfficial')
+              : translate(activeLocale(), 'ollamaDownloadProgress', {
+                  percent: Math.round(percent),
+                }),
           );
         });
         stage = 'signature';
-        sendProgress('Vérification de la signature numérique d’Ollama…');
+        sendProgressMessage('ollamaSignatureCheck');
         await verifyOllamaInstaller(installerPath);
         stage = 'install';
-        sendProgress('Installation d’Ollama dans ton profil Windows…');
+        sendProgressMessage('ollamaInstalling');
         await runOllamaInstaller(installerPath);
         await disableOllamaLaunchAtLogin();
       } finally {
         await rm(installerPath, { force: true }).catch(() => undefined);
       }
       executable = await waitForOllamaExecutable(90_000);
-      if (!executable)
-        throw new Error('Ollama a été installé, mais son exécutable reste introuvable.');
+      if (!executable) throw new Error(translate(activeLocale(), 'ollamaExecutableMissing'));
     }
     stage = 'start';
     await ensureOllamaRunning(true);
@@ -271,7 +274,7 @@ async function setupEverything(): Promise<InstallResult> {
     await pullModel(executable);
     lastSetupError = null;
     await rm(setupErrorPath(), { force: true }).catch(() => undefined);
-    sendProgress('Installation terminée. SubTranslateAI est prêt.');
+    sendProgressMessage('setupFinished');
     return { ok: true };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -288,15 +291,16 @@ async function setupEverything(): Promise<InstallResult> {
       occurredAt,
       stage,
       message: setupFailureSummary(stage),
-      technicalDetails: 'Les détails techniques n’ont pas été conservés sur le disque.',
+      technicalDetails: translate(activeLocale(), 'technicalDetailsNotStored'),
     };
     await writeFile(
       setupErrorPath(),
       `${JSON.stringify(persistedFailure, null, 2)}\n`,
       'utf8',
     ).catch(() => undefined);
-    sendProgress(message);
-    return { ok: false, error: message };
+    const summary = setupFailureSummary(stage);
+    sendProgress(summary);
+    return { ok: false, error: summary };
   } finally {
     setupBusy = false;
   }
@@ -305,7 +309,7 @@ async function setupEverything(): Promise<InstallResult> {
 async function installModel(): Promise<InstallResult> {
   const executable = findOllamaExecutable();
   if (!executable) return setupEverything();
-  if (setupBusy) return { ok: false, error: 'Une installation est déjà en cours.' };
+  if (setupBusy) return { ok: false, error: translate(activeLocale(), 'setupAlreadyRunning') };
   setupBusy = true;
   try {
     await ensureOllamaRunning(true);
@@ -323,40 +327,49 @@ async function installModel(): Promise<InstallResult> {
 async function pullModel(executable: string): Promise<void> {
   const tags = await fetchOllamaTags();
   if (tags?.includes(MODEL)) {
-    sendProgress('Hy‑MT2‑7B est déjà installé.');
+    sendProgressMessage('modelAlreadyInstalled');
     return;
   }
-  sendProgress('Téléchargement de Hy‑MT2‑7B (environ 4,6 Go)…');
+  sendProgressMessage('modelDownloadStart');
   await new Promise<void>((resolvePromise, reject) => {
     const child = spawn(executable, ['pull', MODEL], {
       windowsHide: true,
       shell: false,
       stdio: ['ignore', 'pipe', 'pipe'],
     });
-    child.stdout.on('data', () => sendProgress('Téléchargement de Hy‑MT2‑7B en cours…'));
+    child.stdout.on('data', () => sendProgressMessage('modelDownloadRunning'));
     child.stderr.on('data', (chunk: Buffer) => {
       const match = chunk.toString('utf8').match(/(\d{1,3})%/u);
       sendProgress(
-        match ? `Téléchargement de Hy‑MT2‑7B : ${match[1]} %` : 'Vérification du modèle…',
+        match
+          ? translate(activeLocale(), 'modelDownloadProgress', { percent: match[1] })
+          : translate(activeLocale(), 'modelChecking'),
       );
     });
     child.once('error', reject);
     child.once('exit', (code) => {
       if (code === 0) resolvePromise();
-      else reject(new Error(`Ollama s’est arrêté avec le code ${code ?? 'inconnu'}.`));
+      else
+        reject(
+          new Error(
+            translate(activeLocale(), 'ollamaStopped', {
+              code: code ?? translate(activeLocale(), 'unknown'),
+            }),
+          ),
+        );
     });
   });
-  sendProgress('Hy‑MT2‑7B est prêt.');
+  sendProgressMessage('modelInstalled');
 }
 
 async function ensureOllamaRunning(required: boolean): Promise<boolean> {
   if ((await fetchOllamaTags()) !== null) return true;
   const executable = findOllamaExecutable();
   if (!executable) {
-    if (required) throw new Error('Ollama n’est pas installé.');
+    if (required) throw new Error(translate(activeLocale(), 'ollamaNotInstalled'));
     return false;
   }
-  sendProgress('Démarrage du moteur Ollama…');
+  sendProgressMessage('ollamaEngineStarting');
   const child = spawn(executable, ['serve'], {
     detached: false,
     windowsHide: true,
@@ -376,7 +389,7 @@ async function ensureOllamaRunning(required: boolean): Promise<boolean> {
     });
   });
   const ready = await Promise.race([waitForOllama(45_000), stoppedBeforeReady]);
-  if (!ready && required) throw new Error('Ollama est installé, mais son service ne démarre pas.');
+  if (!ready && required) throw new Error(translate(activeLocale(), 'ollamaServiceFailed'));
   return ready;
 }
 
@@ -429,6 +442,7 @@ async function getControlPanel(): Promise<ControlPanelState> {
   const [serverSettings, stats] = await Promise.all([fetchServerSettings(), fetchStats()]);
   return {
     preferences: { ...preferences },
+    systemLocale: resolveInterfaceLocale('auto', app.getLocale()),
     serverSettings: editableServerSettings(serverSettings),
     stats: stats
       ? {
@@ -447,10 +461,12 @@ async function saveControlPanel(input: unknown): Promise<ControlPanelState> {
   preferences = {
     automaticUpdates: next.automaticUpdates,
     launchAtLogin: false,
+    interfaceLanguage: next.interfaceLanguage,
   };
   await writePreferences(preferencesPath(), preferences);
   applyLoginPreference(false);
   updateManager?.setEnabled(preferences.automaticUpdates);
+  updateManager?.setLocale(activeLocale());
   await serverRequest('/settings', {
     method: 'PUT',
     headers: { 'content-type': 'application/json' },
@@ -460,19 +476,25 @@ async function saveControlPanel(input: unknown): Promise<ControlPanelState> {
       memoryCacheEntries: next.memoryCacheEntries,
     }),
   });
-  sendProgress('Réglages enregistrés.');
+  sendProgressMessage('settingsSaved');
   return getControlPanel();
 }
 
 function validateControlInput(value: unknown): SaveControlSettingsInput {
-  if (typeof value !== 'object' || value === null) throw new Error('Réglages invalides.');
+  if (typeof value !== 'object' || value === null) {
+    throw new Error(translate(activeLocale(), 'invalidSettings'));
+  }
   const input = value as Partial<SaveControlSettingsInput>;
   if (typeof input.automaticUpdates !== 'boolean' || typeof input.launchAtLogin !== 'boolean') {
-    throw new Error('Options de démarrage invalides.');
+    throw new Error(translate(activeLocale(), 'invalidStartupOptions'));
+  }
+  if (!isInterfaceLanguage(input.interfaceLanguage)) {
+    throw new Error(translate(activeLocale(), 'invalidLanguage'));
   }
   return {
     automaticUpdates: input.automaticUpdates,
     launchAtLogin: input.launchAtLogin,
+    interfaceLanguage: input.interfaceLanguage,
     requestTimeoutMs: boundedInteger(input.requestTimeoutMs, 5_000, 120_000),
     maxRetries: boundedInteger(input.maxRetries, 0, 5),
     memoryCacheEntries: boundedInteger(input.memoryCacheEntries, 100, 20_000),
@@ -481,7 +503,7 @@ function validateControlInput(value: unknown): SaveControlSettingsInput {
 
 function boundedInteger(value: unknown, minimum: number, maximum: number): number {
   if (typeof value !== 'number' || !Number.isInteger(value) || value < minimum || value > maximum) {
-    throw new Error(`Valeur attendue entre ${minimum} et ${maximum}.`);
+    throw new Error(translate(activeLocale(), 'boundedValue', { minimum, maximum }));
   }
   return value;
 }
@@ -514,7 +536,7 @@ async function clearCache(): Promise<InstallResult> {
   try {
     const result = (await serverRequest('/cache', { method: 'DELETE' })) as { cleared?: unknown };
     const cleared = typeof result.cleared === 'number' ? result.cleared : 0;
-    sendProgress(`Cache vidé : ${cleared} traduction(s) supprimée(s).`);
+    sendProgressMessage('cacheCleared', { count: cleared });
     return { ok: true };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : String(error) };
@@ -526,7 +548,9 @@ async function serverRequest(path: string, init?: RequestInit): Promise<unknown>
     ...init,
     signal: AbortSignal.timeout(10_000),
   });
-  if (!response.ok) throw new Error(`Le serveur local a répondu HTTP ${response.status}.`);
+  if (!response.ok) {
+    throw new Error(translate(activeLocale(), 'serverHttpError', { status: response.status }));
+  }
   return response.json();
 }
 
@@ -576,7 +600,7 @@ async function copyDiagnostics(): Promise<void> {
       { value: app.getPath('home'), replacement: '<USER_HOME>' },
     ]),
   );
-  sendProgress('Diagnostic copié dans le presse-papiers.');
+  sendProgressMessage('diagnosticsCopied');
 }
 
 async function getOllamaRuntimeDiagnostics(): Promise<unknown> {
@@ -643,14 +667,14 @@ function readableDiagnosticError(error: unknown): string {
 }
 
 function setupFailureSummary(stage: SetupStage): string {
-  const summaries: Record<SetupStage, string> = {
-    download: 'Le téléchargement d’Ollama a échoué.',
-    signature: 'La vérification de la signature d’Ollama a échoué.',
-    install: 'L’installation d’Ollama a échoué.',
-    start: 'Le démarrage d’Ollama a échoué.',
-    model: 'L’installation du modèle Hy-MT2 a échoué.',
+  const keys: Record<SetupStage, MessageKey> = {
+    download: 'setupDownloadFailed',
+    signature: 'setupSignatureFailed',
+    install: 'setupInstallFailed',
+    start: 'setupStartFailed',
+    model: 'setupModelFailed',
   };
-  return summaries[stage];
+  return translate(activeLocale(), keys[stage]);
 }
 
 async function openExtensionsPage(browser: 'chrome' | 'edge'): Promise<void> {
@@ -658,7 +682,7 @@ async function openExtensionsPage(browser: 'chrome' | 'edge'): Promise<void> {
   const url = browser === 'chrome' ? 'chrome://extensions' : 'edge://extensions';
   if (!executable) {
     clipboard.writeText(url);
-    sendProgress(`${url} copié. Colle cette adresse dans ton navigateur.`);
+    sendProgressMessage('browserUrlCopied', { url });
     return;
   }
   spawn(executable, [url], { detached: true, windowsHide: true, stdio: 'ignore' }).unref();
@@ -730,6 +754,17 @@ function sendProgress(message: string): void {
   mainWindow?.webContents.send('desktop:progress', message);
 }
 
+function sendProgressMessage(
+  key: MessageKey,
+  values: Readonly<Record<string, string | number>> = {},
+): void {
+  sendProgress(translate(activeLocale(), key, values));
+}
+
+function activeLocale() {
+  return resolveInterfaceLocale(preferences.interfaceLanguage, app.getLocale());
+}
+
 function updateStatus(): UpdateStatus {
   return (
     updateManager?.getStatus() ?? {
@@ -738,7 +773,7 @@ function updateStatus(): UpdateStatus {
       currentVersion: app.getVersion(),
       availableVersion: null,
       progressPercent: null,
-      message: 'Mises à jour non initialisées.',
+      message: translate(activeLocale(), 'updatesNotInitialized'),
     }
   );
 }

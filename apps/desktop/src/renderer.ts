@@ -1,4 +1,12 @@
 import type { ControlPanelState, DesktopStatus, UpdateStatus } from './contracts.js';
+import {
+  isInterfaceLanguage,
+  resolveInterfaceLocale,
+  translate,
+  translateStaticText,
+  type InterfaceLanguage,
+  type InterfaceLocale,
+} from './i18n.js';
 
 const message = requiredElement('global-message');
 const setupButton = requiredButton('setup-everything');
@@ -8,9 +16,15 @@ const checkUpdateButton = requiredButton('check-update');
 const installUpdateButton = requiredButton('install-update');
 const saveSettingsButton = requiredButton('save-settings');
 const clearCacheButton = requiredButton('clear-cache');
+const interfaceLanguageSelect = requiredSelect('interface-language');
 const settingsForm = requiredForm('settings-form');
 const settingsMessage = requiredElement('settings-message');
 let settingsDirty = false;
+let languagePreference: InterfaceLanguage = 'auto';
+let systemLocale: InterfaceLocale = resolveInterfaceLocale('auto', navigator.languages);
+let locale: InterfaceLocale = resolveInterfaceLocale(languagePreference, systemLocale);
+let latestStatus: DesktopStatus | null = null;
+let latestUpdateStatus: UpdateStatus | null = null;
 
 setupButton.addEventListener('click', () => void setupEverything());
 extensionButton.addEventListener('click', () => void window.subTranslate.openExtensionFolder());
@@ -21,7 +35,11 @@ clearCacheButton.addEventListener('click', () => void clearCache());
 settingsForm.addEventListener('submit', (event) => void saveSettings(event));
 settingsForm.addEventListener('change', () => {
   settingsDirty = true;
-  settingsMessage.textContent = 'Modifications non enregistrées.';
+  settingsMessage.textContent = translate(locale, 'unsavedChanges');
+});
+interfaceLanguageSelect.addEventListener('change', () => {
+  languagePreference = interfaceLanguage(interfaceLanguageSelect.value);
+  applyLocale();
 });
 
 for (const button of document.querySelectorAll<HTMLButtonElement>('[data-page-target]')) {
@@ -52,6 +70,7 @@ window.subTranslate.onProgress((progressMessage) => {
 });
 window.subTranslate.onUpdateStatus(updateUpdatePanel);
 
+applyLocale(false);
 void refreshAll();
 setInterval(() => void refreshStatus(), 5_000);
 setInterval(() => void refreshControlPanel(), 20_000);
@@ -71,49 +90,48 @@ async function refreshStatus(): Promise<void> {
 }
 
 function updateStatus(status: DesktopStatus): void {
+  latestStatus = status;
   requiredElement('app-version').textContent = `v${status.version}`;
   setIndicator(
     'server-state',
     status.serverReady,
-    status.serverReady ? 'Serveur prêt' : 'Serveur arrêté',
+    translate(locale, status.serverReady ? 'serverReady' : 'serverStopped'),
   );
   setIndicator(
     'ollama-state',
     status.ollamaReachable,
     status.ollamaReachable
-      ? 'Ollama connecté'
+      ? translate(locale, 'ollamaConnected')
       : status.ollamaInstalled
-        ? 'Ollama installé — démarrage…'
-        : 'Ollama à installer',
+        ? translate(locale, 'ollamaStarting')
+        : translate(locale, 'ollamaMissing'),
   );
   setIndicator(
     'model-state',
     status.modelInstalled,
-    status.modelInstalled ? 'Hy‑MT2‑7B prêt' : 'Hy‑MT2‑7B à télécharger',
+    translate(locale, status.modelInstalled ? 'modelReady' : 'modelMissing'),
   );
   const ready = status.serverReady && status.ollamaReachable && status.modelInstalled;
   setupButton.disabled = status.setupBusy;
   setupButton.textContent = ready
-    ? 'Tout est installé ✓'
+    ? translate(locale, 'setupComplete')
     : status.setupBusy
-      ? 'Installation en cours…'
-      : 'Tout installer automatiquement';
+      ? translate(locale, 'setupRunning')
+      : translate(locale, 'setupAction');
   setupButton.dataset.complete = String(ready);
   if (status.serverError) message.textContent = status.serverError;
   else if (ready && !status.setupBusy) {
-    message.textContent = 'Tout est prêt. Laisse SubTranslateAI ouvert pendant la vidéo.';
+    message.textContent = translate(locale, 'readyMessage');
   }
 }
 
 async function setupEverything(): Promise<void> {
-  const accepted = window.confirm(
-    'SubTranslateAI va installer Ollama depuis son site officiel puis télécharger Hy‑MT2‑7B (environ 4,6 Go). Continuer ?',
-  );
+  const accepted = window.confirm(translate(locale, 'setupConfirmation'));
   if (!accepted) return;
   setupButton.disabled = true;
-  message.textContent = 'Préparation de l’installation…';
+  message.textContent = translate(locale, 'setupPreparing');
   const result = await window.subTranslate.setupEverything();
-  if (!result.ok) message.textContent = result.error ?? 'Installation impossible.';
+  if (!result.ok) message.textContent = result.error ?? translate(locale, 'setupImpossible');
   await refreshAll();
 }
 
@@ -126,7 +144,13 @@ async function refreshControlPanel(): Promise<void> {
 }
 
 function updateControlPanel(state: ControlPanelState): void {
+  systemLocale = state.systemLocale;
   if (!settingsDirty) {
+    const nextLanguage = state.preferences.interfaceLanguage;
+    const languageChanged = nextLanguage !== languagePreference;
+    languagePreference = nextLanguage;
+    interfaceLanguageSelect.value = nextLanguage;
+    if (languageChanged) applyLocale(false);
     requiredCheckbox('automatic-updates').checked = state.preferences.automaticUpdates;
     requiredSelect('request-timeout').value = String(state.serverSettings.requestTimeoutMs);
     requiredSelect('max-retries').value = String(state.serverSettings.maxRetries);
@@ -148,13 +172,14 @@ async function saveSettings(event: SubmitEvent): Promise<void> {
     const state = await window.subTranslate.saveControlPanel({
       automaticUpdates: requiredCheckbox('automatic-updates').checked,
       launchAtLogin: false,
+      interfaceLanguage: interfaceLanguage(interfaceLanguageSelect.value),
       requestTimeoutMs: Number(requiredSelect('request-timeout').value),
       maxRetries: Number(requiredSelect('max-retries').value),
       memoryCacheEntries: Number(requiredSelect('memory-cache').value),
     });
     settingsDirty = false;
     updateControlPanel(state);
-    settingsMessage.textContent = 'Réglages enregistrés.';
+    settingsMessage.textContent = translate(locale, 'settingsSaved');
   } catch (error) {
     settingsMessage.textContent = errorMessage(error);
   } finally {
@@ -163,11 +188,11 @@ async function saveSettings(event: SubmitEvent): Promise<void> {
 }
 
 async function clearCache(): Promise<void> {
-  if (!window.confirm('Supprimer toutes les traductions mémorisées localement ?')) return;
+  if (!window.confirm(translate(locale, 'clearCacheConfirmation'))) return;
   clearCacheButton.disabled = true;
   const result = await window.subTranslate.clearCache();
   clearCacheButton.disabled = false;
-  if (!result.ok) message.textContent = result.error ?? 'Impossible de vider le cache.';
+  if (!result.ok) message.textContent = result.error ?? translate(locale, 'clearCacheImpossible');
   await refreshControlPanel();
 }
 
@@ -182,6 +207,7 @@ async function checkForUpdates(): Promise<void> {
 }
 
 function updateUpdatePanel(status: UpdateStatus): void {
+  latestUpdateStatus = status;
   requiredElement('update-message').textContent = status.message;
   const progress = requiredElement('update-progress');
   progress.hidden = status.progressPercent === null;
@@ -214,30 +240,63 @@ function errorMessage(error: unknown): string {
 
 function requiredElement(id: string): HTMLElement {
   const element = document.getElementById(id);
-  if (!element) throw new Error(`Élément #${id} manquant.`);
+  if (!element) throw new Error(translate(locale, 'missingElement', { id }));
   return element;
 }
 
 function requiredButton(id: string): HTMLButtonElement {
   const element = requiredElement(id);
-  if (!(element instanceof HTMLButtonElement)) throw new Error(`#${id} n’est pas un bouton.`);
+  if (!(element instanceof HTMLButtonElement)) {
+    throw new Error(translate(locale, 'notButton', { id }));
+  }
   return element;
 }
 
 function requiredCheckbox(id: string): HTMLInputElement {
   const element = requiredElement(id);
-  if (!(element instanceof HTMLInputElement)) throw new Error(`#${id} n’est pas une case.`);
+  if (!(element instanceof HTMLInputElement)) {
+    throw new Error(translate(locale, 'notCheckbox', { id }));
+  }
   return element;
 }
 
 function requiredSelect(id: string): HTMLSelectElement {
   const element = requiredElement(id);
-  if (!(element instanceof HTMLSelectElement)) throw new Error(`#${id} n’est pas une liste.`);
+  if (!(element instanceof HTMLSelectElement)) {
+    throw new Error(translate(locale, 'notSelect', { id }));
+  }
   return element;
 }
 
 function requiredForm(id: string): HTMLFormElement {
   const element = requiredElement(id);
-  if (!(element instanceof HTMLFormElement)) throw new Error(`#${id} n’est pas un formulaire.`);
+  if (!(element instanceof HTMLFormElement)) {
+    throw new Error(translate(locale, 'notForm', { id }));
+  }
   return element;
+}
+
+function interfaceLanguage(value: string): InterfaceLanguage {
+  return isInterfaceLanguage(value) ? value : 'auto';
+}
+
+function applyLocale(rerender = true): void {
+  locale = resolveInterfaceLocale(languagePreference, systemLocale);
+  document.documentElement.lang = locale;
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  let node = walker.nextNode();
+  while (node) {
+    if (!['SCRIPT', 'STYLE'].includes(node.parentElement?.tagName ?? '')) {
+      node.textContent = translateStaticText(locale, node.textContent ?? '');
+    }
+    node = walker.nextNode();
+  }
+  for (const element of document.querySelectorAll<HTMLElement>('[aria-label]')) {
+    const label = element.getAttribute('aria-label');
+    if (label) element.setAttribute('aria-label', translateStaticText(locale, label));
+  }
+  interfaceLanguageSelect.value = languagePreference;
+  if (!rerender) return;
+  if (latestStatus) updateStatus(latestStatus);
+  if (latestUpdateStatus) updateUpdatePanel(latestUpdateStatus);
 }

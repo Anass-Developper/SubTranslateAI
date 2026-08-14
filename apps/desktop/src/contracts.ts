@@ -1,3 +1,5 @@
+import type { InterfaceLanguage, InterfaceLocale } from './i18n.js';
+
 export interface DesktopStatus {
   serverReady: boolean;
   serverError: string | null;
@@ -18,6 +20,7 @@ export interface InstallResult {
 export interface AppPreferences {
   automaticUpdates: boolean;
   launchAtLogin: boolean;
+  interfaceLanguage: InterfaceLanguage;
 }
 
 export interface EditableServerSettings {
@@ -28,6 +31,7 @@ export interface EditableServerSettings {
 
 export interface ControlPanelState {
   preferences: AppPreferences;
+  systemLocale: InterfaceLocale;
   serverSettings: EditableServerSettings;
   stats: {
     translatedLines: number;
@@ -60,6 +64,7 @@ export interface UpdateStatus {
 export interface SaveControlSettingsInput {
   automaticUpdates: boolean;
   launchAtLogin: boolean;
+  interfaceLanguage: InterfaceLanguage;
   requestTimeoutMs: number;
   maxRetries: number;
   memoryCacheEntries: number;

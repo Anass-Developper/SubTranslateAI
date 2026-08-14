@@ -1,10 +1,12 @@
 import { readFile, writeFile } from 'node:fs/promises';
 
 import type { AppPreferences } from './contracts.js';
+import { isInterfaceLanguage } from './i18n.js';
 
 export const DEFAULT_APP_PREFERENCES: Readonly<AppPreferences> = Object.freeze({
   automaticUpdates: true,
   launchAtLogin: false,
+  interfaceLanguage: 'auto',
 });
 
 export function normalizePreferences(value: unknown): AppPreferences {
@@ -16,6 +18,9 @@ export function normalizePreferences(value: unknown): AppPreferences {
         ? candidate.automaticUpdates
         : DEFAULT_APP_PREFERENCES.automaticUpdates,
     launchAtLogin: false,
+    interfaceLanguage: isInterfaceLanguage(candidate.interfaceLanguage)
+      ? candidate.interfaceLanguage
+      : DEFAULT_APP_PREFERENCES.interfaceLanguage,
   };
 }
 

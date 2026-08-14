@@ -5,15 +5,26 @@ import { DEFAULT_APP_PREFERENCES, normalizePreferences } from '../src/preference
 describe('normalizePreferences', () => {
   it('retombe sur des valeurs simples et sûres pour un fichier invalide', () => {
     expect(normalizePreferences(null)).toEqual(DEFAULT_APP_PREFERENCES);
-    expect(normalizePreferences({ automaticUpdates: 'oui', launchAtLogin: 1 })).toEqual(
-      DEFAULT_APP_PREFERENCES,
-    );
+    expect(
+      normalizePreferences({
+        automaticUpdates: 'oui',
+        launchAtLogin: 1,
+        interfaceLanguage: 'de',
+      }),
+    ).toEqual(DEFAULT_APP_PREFERENCES);
   });
 
   it('conserve uniquement les booléens reconnus', () => {
-    expect(normalizePreferences({ automaticUpdates: false, launchAtLogin: false })).toEqual({
+    expect(
+      normalizePreferences({
+        automaticUpdates: false,
+        launchAtLogin: false,
+        interfaceLanguage: 'en',
+      }),
+    ).toEqual({
       automaticUpdates: false,
       launchAtLogin: false,
+      interfaceLanguage: 'en',
     });
   });
 
@@ -21,6 +32,7 @@ describe('normalizePreferences', () => {
     expect(normalizePreferences({ automaticUpdates: true, launchAtLogin: true })).toEqual({
       automaticUpdates: true,
       launchAtLogin: false,
+      interfaceLanguage: 'auto',
     });
   });
 });

@@ -4,6 +4,10 @@ All notable user-facing changes are documented here.
 
 ## [Unreleased]
 
+## [1.1.8] - 2026-08-14
+
+- Added a complete French and English Windows app interface with automatic system-language detection and a saved manual language choice.
+
 ## [1.1.7] - 2026-08-13
 
 - Added a complete French and English extension interface with automatic browser-language detection and a saved manual language choice.

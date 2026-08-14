@@ -43,6 +43,12 @@ async function evaluate(expression) {
 
 const controlPanel = await evaluate('window.subTranslate.getControlPanel()');
 await evaluate('document.querySelector(`[data-page-target="settings"]`)?.click()');
+const interfaceLanguage = await evaluate(`(() => {
+  const select = document.querySelector('#interface-language');
+  select.value = 'en';
+  select.dispatchEvent(new Event('change', { bubbles: true }));
+  return select.value;
+})()`);
 const selectedTimeout = await evaluate(`(() => {
   const select = document.querySelector('#request-timeout');
   select.value = '90000';
@@ -57,6 +63,7 @@ const settingsMessage = await evaluate('document.querySelector("#settings-messag
 const sameSettings = JSON.stringify({
   automaticUpdates: true,
   launchAtLogin: true,
+  interfaceLanguage: 'auto',
   requestTimeoutMs: 45_000,
   maxRetries: 1,
   memoryCacheEntries: 1_000,
@@ -73,6 +80,7 @@ const output = {
   heading: await evaluate('document.querySelector("h2")?.textContent'),
   status: await evaluate('window.subTranslate.getStatus()'),
   controlPanel,
+  interfaceLanguage,
   selectedTimeout,
   selectedTimeoutAfterRefresh,
   settingsMessage,
