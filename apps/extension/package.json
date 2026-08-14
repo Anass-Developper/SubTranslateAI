@@ -16,15 +16,15 @@
     "@dual-subtitles/shared": "*"
   },
   "devDependencies": {
-    "@eslint/js": "^9.17.0",
-    "@types/chrome": "^0.0.287",
-    "eslint": "^9.17.0",
-    "globals": "^15.14.0",
-    "jsdom": "^25.0.1",
-    "prettier": "^3.4.2",
-    "typescript": "^5.7.2",
-    "typescript-eslint": "^8.18.1",
-    "vite": "^6.0.5",
+    "@eslint/js": "^10.0.1",
+    "@types/chrome": "^0.2.5",
+    "eslint": "^10.8.1",
+    "globals": "^17.9.0",
+    "jsdom": "^30.0.1",
+    "prettier": "^3.9.6",
+    "typescript": "^7.0.2",
+    "typescript-eslint": "^8.67.0",
+    "vite": "^8.2.1",
     "vitest": "^4.1.10"
   }
 }
