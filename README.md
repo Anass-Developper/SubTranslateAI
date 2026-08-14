@@ -17,7 +17,32 @@
   <img alt="Local AI" src="https://img.shields.io/badge/AI-100%25%20local-2ea44f">
 </p>
 
+<p align="center">
+  <strong><a href="https://github.com/Anass-Developper/SubTranslateAI-Releases/releases/latest">Download for Windows</a></strong>
+  &nbsp;·&nbsp;
+  <a href="docs/README.fr.md">Guide français</a>
+  &nbsp;·&nbsp;
+  <a href="https://github.com/Anass-Developper/SubTranslateAI/issues/new?template=bug_report.yml">Report a problem</a>
+</p>
+
 > SubTranslateAI is an early open-source Windows beta. It needs an existing subtitle track: it does not transcribe audio yet. Streaming websites change frequently, so please [report broken integrations](https://github.com/Anass-Developper/SubTranslateAI/issues/new?template=bug_report.yml).
+
+<p align="center">
+  <img src="docs/assets/subtranslateai-demo.gif" alt="Synthetic demonstration of local French and Chinese dual subtitles" width="960">
+</p>
+
+<p align="center"><sub>Synthetic demonstration — no film, series or third-party subtitle footage is used.</sub></p>
+
+## At a glance
+
+|                              | SubTranslateAI                                     |
+| ---------------------------- | -------------------------------------------------- |
+| **Input**                    | Existing English, French or Chinese subtitle track |
+| **Output**                   | French, simplified Chinese, or both                |
+| **Translation**              | Hy-MT2 through Ollama on your computer             |
+| **Data sent to a cloud API** | None in the supported desktop configuration        |
+| **Cost after installation**  | No subscription or API key                         |
+| **Current platform**         | Windows 10/11 with Chrome or Edge                  |
 
 ## Why SubTranslateAI?
 
@@ -31,6 +56,14 @@
 - **Diagnostics and updates:** copy a privacy-conscious diagnostic report and install new app releases from the control panel.
 
 Supported integrations currently include YouTube, Netflix, Prime Video, Canal+, Apple TV and Bilibili. Results depend on the subtitle format exposed by each website.
+
+### Controls that stay out of the way
+
+<p align="center">
+  <img src="docs/assets/extension-popup.png" alt="SubTranslateAI extension popup with local status and bilingual subtitle controls" width="360">
+</p>
+
+Choose French, Chinese or both directly from the extension popup. Font size, vertical position, original-subtitle visibility, intelligent preloading and first-load pause are configurable without editing a script.
 
 ## Install on Windows
 
@@ -117,11 +150,13 @@ Please do not upload copyrighted subtitle files. Use short, original or freely l
 
 - easier extension distribution through browser stores
 - more resilient streaming-site adapters
-- a reproducible French/Chinese/English subtitle evaluation set
+- a larger, independently reviewed French/Chinese/English evaluation set
 - signed Windows installers
 - optional local speech-to-text mode
 
-See [ROADMAP.md](ROADMAP.md) for details. If SubTranslateAI helps you, a GitHub star makes the project easier for other subtitle users to discover.
+See [ROADMAP.md](ROADMAP.md) for details.
+
+> If SubTranslateAI helps you, [star the repository](https://github.com/Anass-Developper/SubTranslateAI) so other subtitle users can discover it. Installation reports and translation corrections are just as valuable.
 
 ## License and attribution
 
