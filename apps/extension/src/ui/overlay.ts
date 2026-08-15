@@ -4,6 +4,7 @@ import type {
   SubtitleDisplayMode,
   TranslationResponse,
 } from "../types";
+import { resolveUiLanguage, translate, type UiLanguage } from "../settings/i18n";
 
 export class SubtitleOverlay {
   private readonly host: HTMLDivElement;
@@ -15,11 +16,13 @@ export class SubtitleOverlay {
   private readonly sourceLine: HTMLDivElement;
   private readonly statusLine: HTMLDivElement;
   private readonly debugPanel: HTMLDivElement;
+  private readonly debugTitle: HTMLElement;
   private readonly debugText: HTMLPreElement;
   private readonly copyButton: HTMLButtonElement;
   private currentDiagnostics: DiagnosticReport | null = null;
   private currentTranslation: TranslationResponse | null = null;
   private subtitleDisplayMode: SubtitleDisplayMode = "both";
+  private uiLanguage: UiLanguage = "en";
   private mounted = false;
   private readonly fullscreenHandler = (): void => this.moveIntoFullscreenRoot();
   private readonly copyHandler = (): void => void this.copyDiagnostics();
@@ -37,7 +40,6 @@ export class SubtitleOverlay {
     this.container.className = "subtitle-container";
     this.container.dataset.state = "empty";
     this.container.setAttribute("role", "region");
-    this.container.setAttribute("aria-label", "Sous-titres traduits");
     this.container.setAttribute("aria-live", "polite");
     this.container.setAttribute("aria-atomic", "true");
 
@@ -55,16 +57,15 @@ export class SubtitleOverlay {
 
     this.debugPanel = documentRoot.createElement("div");
     this.debugPanel.className = "debug-panel";
-    const debugTitle = documentRoot.createElement("strong");
-    debugTitle.textContent = "Diagnostic sous-titres";
+    this.debugTitle = documentRoot.createElement("strong");
     this.debugText = documentRoot.createElement("pre");
     this.copyButton = documentRoot.createElement("button");
     this.copyButton.type = "button";
-    this.copyButton.textContent = "Copier le diagnostic";
     this.copyButton.addEventListener("click", this.copyHandler);
-    this.debugPanel.append(debugTitle, this.debugText, this.copyButton);
+    this.debugPanel.append(this.debugTitle, this.debugText, this.copyButton);
 
     this.shadow.append(style, this.container, this.debugPanel);
+    this.applyTranslations();
   }
 
   mount(): void {
@@ -88,6 +89,11 @@ export class SubtitleOverlay {
   }
 
   applySettings(settings: ExtensionSettings): void {
+    const detectedLanguage =
+      (typeof chrome !== "undefined" ? chrome.i18n?.getUILanguage?.() : undefined) ??
+      navigator.language;
+    this.uiLanguage = resolveUiLanguage(settings.interfaceLocale, detectedLanguage);
+    this.applyTranslations();
     this.host.style.setProperty("--dual-font-size", `${settings.fontSize}px`);
     this.host.style.setProperty("--dual-bottom", `${settings.verticalPosition}%`);
     this.host.style.setProperty("--dual-bg-opacity", settings.backgroundOpacity.toString());
@@ -149,6 +155,15 @@ export class SubtitleOverlay {
     this.debugPanel.toggleAttribute("data-visible", visible);
   }
 
+  private applyTranslations(): void {
+    this.container.lang = this.uiLanguage;
+    this.container.setAttribute("aria-label", translate(this.uiLanguage, "translatedSubtitles"));
+    this.statusLine.lang = this.uiLanguage;
+    this.debugPanel.lang = this.uiLanguage;
+    this.debugTitle.textContent = translate(this.uiLanguage, "diagnosticsTitle");
+    this.copyButton.textContent = translate(this.uiLanguage, "copyDiagnostic");
+  }
+
   private renderTranslation(): void {
     const response = this.currentTranslation;
     if (!response) return;
@@ -200,7 +215,7 @@ export class SubtitleOverlay {
     const text = formatDiagnosticReport(this.currentDiagnostics);
     try {
       await navigator.clipboard.writeText(text);
-      this.copyButton.textContent = "Copié !";
+      this.copyButton.textContent = translate(this.uiLanguage, "copied");
     } catch {
       const textarea = this.documentRoot.createElement("textarea");
       textarea.value = text;
@@ -210,10 +225,10 @@ export class SubtitleOverlay {
       textarea.select();
       this.documentRoot.execCommand("copy");
       textarea.remove();
-      this.copyButton.textContent = "Copié !";
+      this.copyButton.textContent = translate(this.uiLanguage, "copied");
     }
     setTimeout(() => {
-      this.copyButton.textContent = "Copier le diagnostic";
+      this.copyButton.textContent = translate(this.uiLanguage, "copyDiagnostic");
     }, 1_500);
   }
 }

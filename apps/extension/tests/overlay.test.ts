@@ -30,6 +30,43 @@ describe("overlay bilingue", () => {
     overlay.destroy();
   });
 
+  it("localise le nom accessible et le diagnostic selon le choix manuel", () => {
+    const overlay = new SubtitleOverlay(document);
+    overlay.mount();
+    overlay.applySettings({ ...DEFAULT_EXTENSION_SETTINGS, interfaceLocale: "en", debug: true });
+
+    const shadow = document.querySelector<HTMLElement>("[data-dual-subtitles-overlay]")?.shadowRoot;
+    const container = shadow?.querySelector<HTMLElement>(".subtitle-container");
+    const debugPanel = shadow?.querySelector<HTMLElement>(".debug-panel");
+
+    expect(container?.lang).toBe("en");
+    expect(container?.getAttribute("aria-label")).toBe("Translated subtitles");
+    expect(debugPanel?.lang).toBe("en");
+    expect(debugPanel?.querySelector("strong")?.textContent).toBe("Subtitle diagnostics");
+    expect(debugPanel?.querySelector("button")?.textContent).toBe("Copy diagnostics");
+
+    overlay.applySettings({ ...DEFAULT_EXTENSION_SETTINGS, interfaceLocale: "fr", debug: true });
+    expect(container?.lang).toBe("fr");
+    expect(container?.getAttribute("aria-label")).toBe("Sous-titres traduits");
+    expect(debugPanel?.querySelector("strong")?.textContent).toBe("Diagnostic sous-titres");
+    expect(debugPanel?.querySelector("button")?.textContent).toBe("Copier le diagnostic");
+    overlay.destroy();
+  });
+
+  it("détecte automatiquement la langue du navigateur pour l’overlay", () => {
+    vi.stubGlobal("chrome", { i18n: { getUILanguage: () => "fr-FR" } });
+    const overlay = new SubtitleOverlay(document);
+    overlay.mount();
+    overlay.applySettings({ ...DEFAULT_EXTENSION_SETTINGS, interfaceLocale: "auto" });
+
+    const container = document
+      .querySelector<HTMLElement>("[data-dual-subtitles-overlay]")
+      ?.shadowRoot?.querySelector<HTMLElement>(".subtitle-container");
+    expect(container?.lang).toBe("fr");
+    expect(container?.getAttribute("aria-label")).toBe("Sous-titres traduits");
+    overlay.destroy();
+  });
+
   it("n'affiche aucun message de préparation ou de modèle", () => {
     const overlay = new SubtitleOverlay(document);
     overlay.mount();

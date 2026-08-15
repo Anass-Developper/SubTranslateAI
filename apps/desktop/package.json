@@ -1,6 +1,6 @@
 {
   "name": "@dual-subtitles/desktop",
-  "version": "1.1.8",
+  "version": "1.1.9",
   "description": "Application Windows locale pour les sous-titres bilingues FR / chinois.",
   "author": "SubTranslateAI",
   "private": true,

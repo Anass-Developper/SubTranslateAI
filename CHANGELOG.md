@@ -4,6 +4,10 @@ All notable user-facing changes are documented here.
 
 ## [Unreleased]
 
+## [1.1.9] - 2026-08-15
+
+- Localized the extension subtitle overlay's accessibility label and diagnostic controls in French and English.
+
 ## [1.1.8] - 2026-08-14
 
 - Added a complete French and English Windows app interface with automatic system-language detection and a saved manual language choice.
