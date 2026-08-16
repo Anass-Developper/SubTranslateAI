@@ -16,7 +16,7 @@
   },
   "dependencies": {
     "@dual-subtitles/shared": "*",
-    "@fastify/cors": "^10.0.2",
+    "@fastify/cors": "^11.3.0",
     "@fastify/rate-limit": "^10.2.1",
     "better-sqlite3": "^12.11.1",
     "dotenv": "^16.4.7",
