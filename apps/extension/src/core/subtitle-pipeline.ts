@@ -1,4 +1,4 @@
-import { ServerClient, ServerClientError } from "../client/server-client";
+import { ServerClient, ServerClientError, type ServerErrorKind } from "../client/server-client";
 import type { ExtensionSettings, TranslationResponse } from "../types";
 import { FragmentGrouper } from "./fragment-grouper";
 import { createSubtitleId, detectLanguageHint, normalizeDetectedText } from "./text";
@@ -7,7 +7,7 @@ export interface SubtitlePipelineEvents {
   onPending: (text: string, languageHint?: "fr" | "zh") => void;
   onTranslation: (response: TranslationResponse) => void;
   onEmpty: () => void;
-  onError: (message: string, serverUnavailable: boolean) => void;
+  onError: (message: string, serverUnavailable: boolean, kind: ServerErrorKind | "unknown") => void;
   onServerState: (reachable: boolean) => void;
 }
 
@@ -198,7 +198,8 @@ export class SubtitlePipeline {
       this.requestStartedAt = null;
       this.failedRequests += 1;
       this.lastOutcome = "error";
-      this.lastErrorKind = error instanceof ServerClientError ? error.kind : "unknown";
+      const kind = error instanceof ServerClientError ? error.kind : "unknown";
+      this.lastErrorKind = kind;
       const unavailable =
         !(error instanceof ServerClientError) ||
         error.kind === "network" ||
@@ -209,7 +210,7 @@ export class SubtitlePipeline {
           ? error.message
           : "Traduction temporairement indisponible";
       this.events.onServerState(!unavailable);
-      this.events.onError(message, unavailable);
+      this.events.onError(message, unavailable, kind);
       if (unavailable) {
         this.scheduleReconnect(this.settings.reconnectIntervalMs);
       }

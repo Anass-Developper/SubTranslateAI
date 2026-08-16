@@ -67,6 +67,22 @@ describe("overlay bilingue", () => {
     overlay.destroy();
   });
 
+  it("localise une erreur de traduction et la retraduit après un changement de langue", () => {
+    const overlay = new SubtitleOverlay(document);
+    overlay.mount();
+    overlay.applySettings({ ...DEFAULT_EXTENSION_SETTINGS, interfaceLocale: "en" });
+    overlay.setErrorStatus("rate-limit");
+
+    const status = document
+      .querySelector<HTMLElement>("[data-dual-subtitles-overlay]")
+      ?.shadowRoot?.querySelector<HTMLElement>(".status");
+    expect(status?.textContent).toBe("Translation limit reached");
+
+    overlay.applySettings({ ...DEFAULT_EXTENSION_SETTINGS, interfaceLocale: "fr" });
+    expect(status?.textContent).toBe("Limite de traduction atteinte");
+    overlay.destroy();
+  });
+
   it("n'affiche aucun message de préparation ou de modèle", () => {
     const overlay = new SubtitleOverlay(document);
     overlay.mount();

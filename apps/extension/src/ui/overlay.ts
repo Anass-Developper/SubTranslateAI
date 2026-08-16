@@ -1,10 +1,17 @@
+import type { ServerErrorKind } from "../client/server-client";
+import {
+  resolveUiLanguage,
+  serverErrorTranslationKey,
+  translate,
+  type TranslationKey,
+  type UiLanguage,
+} from "../settings/i18n";
 import type {
   DiagnosticReport,
   ExtensionSettings,
   SubtitleDisplayMode,
   TranslationResponse,
 } from "../types";
-import { resolveUiLanguage, translate, type UiLanguage } from "../settings/i18n";
 
 export class SubtitleOverlay {
   private readonly host: HTMLDivElement;
@@ -21,6 +28,7 @@ export class SubtitleOverlay {
   private readonly copyButton: HTMLButtonElement;
   private currentDiagnostics: DiagnosticReport | null = null;
   private currentTranslation: TranslationResponse | null = null;
+  private statusTranslationKey: TranslationKey | null = null;
   private subtitleDisplayMode: SubtitleDisplayMode = "both";
   private uiLanguage: UiLanguage = "en";
   private mounted = false;
@@ -143,7 +151,13 @@ export class SubtitleOverlay {
   }
 
   setStatus(message: string): void {
+    this.statusTranslationKey = null;
     this.setLine(this.statusLine, message);
+  }
+
+  setErrorStatus(kind: ServerErrorKind | "unknown"): void {
+    this.statusTranslationKey = serverErrorTranslationKey(kind);
+    this.renderTranslatedStatus();
   }
 
   setDiagnostics(report: DiagnosticReport): void {
@@ -162,6 +176,13 @@ export class SubtitleOverlay {
     this.debugPanel.lang = this.uiLanguage;
     this.debugTitle.textContent = translate(this.uiLanguage, "diagnosticsTitle");
     this.copyButton.textContent = translate(this.uiLanguage, "copyDiagnostic");
+    this.renderTranslatedStatus();
+  }
+
+  private renderTranslatedStatus(): void {
+    if (this.statusTranslationKey) {
+      this.setLine(this.statusLine, translate(this.uiLanguage, this.statusTranslationKey));
+    }
   }
 
   private renderTranslation(): void {

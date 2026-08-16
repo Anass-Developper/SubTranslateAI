@@ -4,6 +4,10 @@ All notable user-facing changes are documented here.
 
 ## [Unreleased]
 
+## [1.1.10] - 2026-08-16
+
+- Localized subtitle overlay error messages in French and English, including live updates after changing the interface language.
+
 ## [1.1.9] - 2026-08-15
 
 - Localized the extension subtitle overlay's accessibility label and diagnostic controls in French and English.

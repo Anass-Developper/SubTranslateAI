@@ -3,7 +3,13 @@ import { mergeSettings } from "../config";
 import { loadSettings, saveSettings } from "../storage";
 import type { DiagnosticReport, ExtensionSettings, ServerStats } from "../types";
 import { formatDiagnosticReport } from "../ui/overlay";
-import { resolveUiLanguage, translate, type TranslationKey, type UiLanguage } from "./i18n";
+import {
+  resolveUiLanguage,
+  serverErrorTranslationKey,
+  translate,
+  type TranslationKey,
+  type UiLanguage,
+} from "./i18n";
 import { activateSiteAccessForCurrentTab } from "./site-access";
 
 type Translator = (key: TranslationKey) => string;
@@ -538,16 +544,7 @@ function setResult(
 
 function readableError(error: unknown, t: Translator): string {
   if (error instanceof ServerClientError) {
-    const keys: Record<ServerClientError["kind"], TranslationKey> = {
-      aborted: "errorAborted",
-      timeout: "errorTimeout",
-      network: "errorNetwork",
-      unauthorized: "errorUnauthorized",
-      "rate-limit": "errorRateLimit",
-      server: "errorServer",
-      "invalid-response": "errorInvalidResponse",
-    };
-    return t(keys[error.kind]);
+    return t(serverErrorTranslationKey(error.kind));
   }
   if (error instanceof Error) {
     return error.message;

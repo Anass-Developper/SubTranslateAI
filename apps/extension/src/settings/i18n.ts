@@ -1,3 +1,4 @@
+import type { ServerErrorKind } from "../client/server-client";
 import type { InterfaceLocale } from "../types";
 
 export type UiLanguage = Exclude<InterfaceLocale, "auto">;
@@ -211,4 +212,17 @@ export function resolveUiLanguage(
 
 export function translate(language: UiLanguage, key: TranslationKey): string {
   return translations[language][key];
+}
+
+export function serverErrorTranslationKey(kind: ServerErrorKind | "unknown"): TranslationKey {
+  const keys: Record<ServerErrorKind, TranslationKey> = {
+    aborted: "errorAborted",
+    timeout: "errorTimeout",
+    network: "errorNetwork",
+    unauthorized: "errorUnauthorized",
+    "rate-limit": "errorRateLimit",
+    server: "errorServer",
+    "invalid-response": "errorInvalidResponse",
+  };
+  return kind === "unknown" ? "translationServerUnavailable" : keys[kind];
 }

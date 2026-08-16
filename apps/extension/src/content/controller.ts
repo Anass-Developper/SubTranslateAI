@@ -190,10 +190,10 @@ export class ContentController {
         this.overlay?.setStatus("");
         this.refreshDiagnostics();
       },
-      onError: (message) => {
+      onError: (message, _serverUnavailable, kind) => {
         this.lastError = message;
         void this.warmupPause.complete();
-        this.overlay?.setStatus(message);
+        this.overlay?.setErrorStatus(kind);
         this.refreshDiagnostics();
       },
       onServerState: (reachable) => {

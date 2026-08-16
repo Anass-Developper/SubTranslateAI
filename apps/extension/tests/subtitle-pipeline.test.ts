@@ -154,6 +154,38 @@ describe("pipeline de sous-titres", () => {
     expect(onTranslation).toHaveBeenCalledOnce();
     pipeline.dispose();
   });
+
+  it("transmet le type d’erreur avec le message diagnostic brut", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            error: { code: "PROVIDER_RATE_LIMIT", message: "Trop de requêtes", retryable: true },
+          }),
+          { status: 429 },
+        ),
+      ),
+    );
+    const onError = vi.fn();
+    const pipeline = new SubtitlePipeline(
+      { ...DEFAULT_EXTENSION_SETTINGS, fragmentWindowMs: 0, debounceMs: 0 },
+      {
+        onPending: vi.fn(),
+        onTranslation: vi.fn(),
+        onEmpty: vi.fn(),
+        onError,
+        onServerState: vi.fn(),
+      },
+    );
+
+    pipeline.observe("Hello");
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.waitFor(() => expect(onError).toHaveBeenCalledOnce());
+    expect(onError).toHaveBeenCalledWith("Trop de requêtes", false, "rate-limit");
+    pipeline.dispose();
+  });
 });
 
 function translationResponse(
