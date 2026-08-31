@@ -28,6 +28,10 @@ export class MemoryLru<Key, Value> {
     this.#entries.clear();
   }
 
+  public delete(key: Key): boolean {
+    return this.#entries.delete(key);
+  }
+
   public resize(maximumSize: number): void {
     this.#maximumSize = this.#validateSize(maximumSize);
     this.#trim();

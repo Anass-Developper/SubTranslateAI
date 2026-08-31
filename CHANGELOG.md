@@ -4,6 +4,11 @@ All notable user-facing changes are documented here.
 
 ## [Unreleased]
 
+## [1.1.11] - 2026-08-31
+
+- Translate complete subtitle sentences containing acronyms or technical codes while preserving those terms exactly.
+- Automatically discard and repair older cached translations that incorrectly returned the source sentence unchanged.
+
 ## [1.1.10] - 2026-08-16
 
 - Localized subtitle overlay error messages in French and English, including live updates after changing the interface language.

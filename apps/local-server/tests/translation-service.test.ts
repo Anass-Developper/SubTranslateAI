@@ -25,6 +25,7 @@ function fixture(result: { sourceLanguage: string; fr: string; zh: string }) {
   const provider: TranslationProvider = { name: 'fake', translate };
   return {
     database,
+    cache,
     translate,
     stats,
     service: new TranslationService({ provider, cache, settings, stats }),
@@ -133,6 +134,24 @@ describe('TranslationService', () => {
       previousLines: [' one ', '<i>two</i>', 'three', 'four'],
     });
     expect(test.translate.mock.calls[0]![0].previousLines).toEqual(['two', 'three', 'four']);
+  });
+
+  it('invalide une ancienne phrase NASA/FBI restée en français dans le cache', async () => {
+    const source = 'La NASA collabore avec le FBI.';
+    const test = fixture({ sourceLanguage: 'fr', fr: source, zh: 'NASA与FBI合作。' });
+    databases.push(test.database);
+    test.cache.set(source, 'fr', ['zh'], { sourceLanguage: 'fr', fr: source, zh: source });
+
+    await expect(
+      test.service.translate({
+        id: 'repair-acronyms',
+        text: source,
+        detectedLanguage: 'fr',
+        previousLines: [],
+      }),
+    ).resolves.toMatchObject({ zh: 'NASA与FBI合作。', cached: false });
+    expect(test.translate).toHaveBeenCalledTimes(1);
+    expect(test.cache.count()).toBe(1);
   });
 
   it("n'annule pas une traduction partagée tant qu'un autre client l'attend", async () => {

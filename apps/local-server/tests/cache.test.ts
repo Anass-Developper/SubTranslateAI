@@ -57,4 +57,16 @@ describe('TranslationCache', () => {
     expect(cache.get(item.cacheKey)).toBeUndefined();
     expect(cache.count()).toBe(0);
   });
+
+  it('supprime une traduction précise de SQLite et de la LRU', () => {
+    const { cache } = setup();
+    const item = cache.set('hello', 'en', ['fr', 'zh'], {
+      sourceLanguage: 'en',
+      fr: 'bonjour',
+      zh: '你好',
+    });
+    expect(cache.delete(item.cacheKey)).toBe(true);
+    expect(cache.get(item.cacheKey)).toBeUndefined();
+    expect(cache.count()).toBe(0);
+  });
 });

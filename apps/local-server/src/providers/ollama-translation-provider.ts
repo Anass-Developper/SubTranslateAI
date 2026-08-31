@@ -19,6 +19,10 @@ import type {
   TranslationInput,
   TranslationProvider,
 } from './translation-provider.js';
+import {
+  hasTranslatableTextOutsideProtectedTerms,
+  protectedLatinTerms,
+} from '../translation-quality.js';
 
 const OllamaChatResponseSchema = z
   .object({
@@ -182,10 +186,15 @@ export class OllamaTranslationProvider implements TranslationProvider {
       const strictNotice = strictRetry
         ? 'Your previous answer was invalid. Output only the translated current subtitle.\n\n'
         : '';
+      const protectedTerms = protectedLatinTerms(input.text);
+      const protectedTermsNotice =
+        protectedTerms.length > 0
+          ? `Preserve these acronyms or codes exactly as written while translating every other part of the sentence: ${protectedTerms.join(', ')}.\n\n`
+          : '';
       const prompt =
         this.#modelType === 'hy-mt'
-          ? `${context}${strictNotice}Translate the following current film subtitle from ${sourceName} into ${targetName}. Preserve its meaning, tone, register and negation, but keep it natural and concise. Note that you must ONLY output the translated result without quotes or any additional explanation:\n${input.text}`
-          : `You are a professional ${sourceName} (${sourceLanguage}) to ${targetName} (${targetLanguage}) translator. Your goal is to accurately convey the meaning and nuances of the original ${sourceName} text while adhering to ${targetName} grammar, vocabulary and cultural sensitivities. Keep the result natural and concise enough for a film subtitle. Preserve tone, register, humor and established proper names. Do not censor it.\n\nProduce only the ${targetName} translation, without quotes, labels, explanations or commentary. Never leave untranslated source-language words unless they are proper names.\n\n${context}${strictNotice}Please translate the following ${sourceName} text into ${targetName}:\n${input.text}`;
+          ? `${context}${strictNotice}${protectedTermsNotice}Translate the following current film subtitle from ${sourceName} into ${targetName}. Translate the complete sentence; never return the source sentence unchanged. Preserve its meaning, tone, register and negation, but keep it natural and concise. Note that you must ONLY output the translated result without quotes or any additional explanation:\n${input.text}`
+          : `You are a professional ${sourceName} (${sourceLanguage}) to ${targetName} (${targetLanguage}) translator. Your goal is to accurately convey the meaning and nuances of the original ${sourceName} text while adhering to ${targetName} grammar, vocabulary and cultural sensitivities. Keep the result natural and concise enough for a film subtitle. Preserve tone, register, humor and established proper names. Do not censor it.\n\nProduce only the ${targetName} translation, without quotes, labels, explanations or commentary. Never leave untranslated source-language words unless they are proper names.\n\n${context}${strictNotice}${protectedTermsNotice}Please translate the following ${sourceName} text into ${targetName}:\n${input.text}`;
       const content = await this.#request([{ role: 'user', content: prompt }], false, options);
       return cleanPlainTranslation(content, targetLanguage, input.text);
     });
@@ -322,7 +331,19 @@ function cleanPlainTranslation(
   if (targetLanguage === 'fr' && /\p{Script=Han}/u.test(cleaned)) {
     throw new InvalidProviderResponseError('Le modèle local a laissé du chinois dans le français.');
   }
+  const protectedTerms = protectedLatinTerms(sourceText);
+  const missingProtectedTerm = protectedTerms.find((term) => !cleaned.includes(term));
+  if (missingProtectedTerm) {
+    throw new InvalidProviderResponseError(
+      `Le modèle local n'a pas conservé le sigle ou code : ${missingProtectedTerm}.`,
+    );
+  }
   if (targetLanguage === 'zh-Hans') {
+    if (!/\p{Script=Han}/u.test(cleaned) && hasTranslatableTextOutsideProtectedTerms(sourceText)) {
+      throw new InvalidProviderResponseError(
+        "Le modèle local n'a pas traduit la phrase source en chinois.",
+      );
+    }
     const unexpectedLatinWord = cleaned
       .match(/[A-Za-z][A-Za-z'-]{1,}/gu)
       ?.find((word) => !sourceText.includes(word));

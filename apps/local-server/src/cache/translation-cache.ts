@@ -124,6 +124,15 @@ export class TranslationCache {
     return result.changes;
   }
 
+  public delete(cacheKey: string): boolean {
+    this.#memory.delete(cacheKey);
+    return (
+      this.#database.handle
+        .prepare('DELETE FROM translation_cache WHERE cache_key = ?')
+        .run(cacheKey).changes > 0
+    );
+  }
+
   public count(): number {
     const row = this.#database.handle
       .prepare('SELECT COUNT(*) AS count FROM translation_cache')

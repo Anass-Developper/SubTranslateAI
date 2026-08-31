@@ -23,6 +23,7 @@ import type {
 } from '../providers/translation-provider.js';
 import type { SettingsStore } from '../settings/settings-store.js';
 import type { StatsStore } from '../stats/stats-store.js';
+import { isCachedTranslationPlausible } from '../translation-quality.js';
 
 export class TranslationInputError extends Error {
   public readonly code = 'INVALID_SUBTITLE';
@@ -93,7 +94,7 @@ export class TranslationService {
     const lookupSource = previouslyDetectedSource ?? sourceHint;
     const lookupTargetLanguages = chooseTranslationTargets(lookupSource);
     const cacheKey = createTranslationCacheKey(text, lookupSource, lookupTargetLanguages);
-    const cached = this.#cache.get(cacheKey);
+    const cached = this.#usableCachedTranslation(cacheKey, text);
     if (cached) {
       this.#stats.increment('cacheHits');
       return {
@@ -146,7 +147,7 @@ export class TranslationService {
 
       for (const [index, cue] of request.cues.entries()) {
         const prepared = this.#prepareBatchCue(cue, settings);
-        const cached = this.#cache.get(prepared.cacheKey);
+        const cached = this.#usableCachedTranslation(prepared.cacheKey, prepared.text);
         if (cached) {
           this.#stats.increment('cacheHits');
           results[index] = this.#toBatchResult(cue.cueId, cached, true);
@@ -215,6 +216,13 @@ export class TranslationService {
     } finally {
       signal?.removeEventListener('abort', abortFromCaller);
     }
+  }
+
+  #usableCachedTranslation(cacheKey: string, sourceText: string) {
+    const cached = this.#cache.get(cacheKey);
+    if (!cached || isCachedTranslationPlausible(sourceText, cached)) return cached;
+    this.#cache.delete(cacheKey);
+    return undefined;
   }
 
   async #consumeInFlight(

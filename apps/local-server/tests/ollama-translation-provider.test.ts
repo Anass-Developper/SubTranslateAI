@@ -165,6 +165,49 @@ describe('OllamaTranslationProvider', () => {
     ).rejects.toMatchObject({ code: 'PROVIDER_INVALID_RESPONSE' });
   });
 
+  it('retraduit toute la phrase tout en conservant NASA et FBI', async () => {
+    const source = 'La NASA collabore avec le FBI.';
+    const fetchFunction = vi
+      .fn()
+      .mockResolvedValueOnce(ollamaResponse(source))
+      .mockResolvedValueOnce(ollamaResponse('NASA与FBI合作。'));
+    const provider = new OllamaTranslationProvider({
+      modelType: 'hy-mt',
+      fetchFunction: fetchFunction as unknown as typeof fetch,
+      sleep: async () => undefined,
+    });
+
+    await expect(
+      provider.translate(
+        { text: source, detectedLanguage: 'fr', previousLines: [] },
+        { timeoutMs: 1_000, maxRetries: 1 },
+      ),
+    ).resolves.toEqual({ sourceLanguage: 'fr', fr: source, zh: 'NASA与FBI合作。' });
+    expect(fetchFunction).toHaveBeenCalledTimes(2);
+
+    for (const call of fetchFunction.mock.calls) {
+      const body = JSON.parse(String((call[1] as RequestInit).body)) as {
+        messages: Array<{ content: string }>;
+      };
+      expect(body.messages[0]?.content).toContain('Preserve these acronyms');
+      expect(body.messages[0]?.content).toContain('NASA, FBI');
+    }
+  });
+
+  it('accepte un sous-titre composé uniquement du sigle FBI', async () => {
+    const provider = new OllamaTranslationProvider({
+      modelType: 'hy-mt',
+      fetchFunction: (async () => ollamaResponse('FBI')) as typeof fetch,
+    });
+
+    await expect(
+      provider.translate(
+        { text: 'FBI', detectedLanguage: 'fr', previousLines: [] },
+        { timeoutMs: 1_000, maxRetries: 0 },
+      ),
+    ).resolves.toEqual({ sourceLanguage: 'fr', fr: 'FBI', zh: 'FBI' });
+  });
+
   it('préchauffe le modèle sans générer de traduction', async () => {
     const fetchFunction = vi.fn(async () => ollamaResponse(''));
     const provider = new OllamaTranslationProvider({
