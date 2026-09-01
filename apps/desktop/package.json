@@ -14,7 +14,7 @@
     "lint": "eslint src scripts --max-warnings=0"
   },
   "dependencies": {
-    "better-sqlite3": "^12.11.1",
+    "better-sqlite3": "^13.0.3",
     "electron-updater": "^6.8.9"
   },
   "devDependencies": {
