@@ -208,6 +208,21 @@ describe('OllamaTranslationProvider', () => {
     ).resolves.toEqual({ sourceLanguage: 'fr', fr: 'FBI', zh: 'FBI' });
   });
 
+  it('accepte la casse normalisée par le modèle pour un sigle écrit comme un nom', async () => {
+    const source = 'La Nasa prépare le prochain lancement.';
+    const provider = new OllamaTranslationProvider({
+      modelType: 'hy-mt',
+      fetchFunction: (async () => ollamaResponse('NASA正在准备下一次发射。')) as typeof fetch,
+    });
+
+    await expect(
+      provider.translate(
+        { text: source, detectedLanguage: 'fr', previousLines: [] },
+        { timeoutMs: 1_000, maxRetries: 0 },
+      ),
+    ).resolves.toEqual({ sourceLanguage: 'fr', fr: source, zh: 'NASA正在准备下一次发射。' });
+  });
+
   it('préchauffe le modèle sans générer de traduction', async () => {
     const fetchFunction = vi.fn(async () => ollamaResponse(''));
     const provider = new OllamaTranslationProvider({

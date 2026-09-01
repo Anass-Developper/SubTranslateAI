@@ -4,6 +4,10 @@ All notable user-facing changes are documented here.
 
 ## [Unreleased]
 
+## [1.1.12] - 2026-09-01
+
+- Accept harmless capitalization changes when the local model normalizes acronyms such as `Nasa` to `NASA` in Chinese subtitles.
+
 ## [1.1.11] - 2026-08-31
 
 - Translate complete subtitle sentences containing acronyms or technical codes while preserving those terms exactly.

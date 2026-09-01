@@ -344,9 +344,12 @@ function cleanPlainTranslation(
         "Le modèle local n'a pas traduit la phrase source en chinois.",
       );
     }
+    const sourceLatinWords = new Set(
+      (sourceText.match(/[A-Za-z][A-Za-z'-]{1,}/gu) ?? []).map(normalizeLatinWord),
+    );
     const unexpectedLatinWord = cleaned
       .match(/[A-Za-z][A-Za-z'-]{1,}/gu)
-      ?.find((word) => !sourceText.includes(word));
+      ?.find((word) => !sourceLatinWords.has(normalizeLatinWord(word)));
     if (unexpectedLatinWord) {
       throw new InvalidProviderResponseError(
         `Le modèle local a laissé un mot non traduit dans le chinois : ${unexpectedLatinWord}.`,
@@ -354,6 +357,10 @@ function cleanPlainTranslation(
     }
   }
   return cleaned;
+}
+
+function normalizeLatinWord(value: string): string {
+  return value.normalize('NFKC').toLocaleLowerCase('en-US');
 }
 
 function normalizeOllamaError(error: unknown): ProviderError {
