@@ -189,7 +189,7 @@ export class OllamaTranslationProvider implements TranslationProvider {
       const protectedTerms = protectedLatinTerms(input.text);
       const protectedTermsNotice =
         protectedTerms.length > 0
-          ? `Preserve these acronyms or codes exactly as written while translating every other part of the sentence: ${protectedTerms.join(', ')}.\n\n`
+          ? `Keep these acronyms or codes unchanged when they have no standard target-language equivalent; otherwise use the established equivalent. In every case, translate every other part of the sentence: ${protectedTerms.join(', ')}.\n\n`
           : '';
       const prompt =
         this.#modelType === 'hy-mt'
@@ -330,13 +330,6 @@ function cleanPlainTranslation(
     throw new InvalidProviderResponseError('TranslateGemma a renvoyé une traduction vide.');
   if (targetLanguage === 'fr' && /\p{Script=Han}/u.test(cleaned)) {
     throw new InvalidProviderResponseError('Le modèle local a laissé du chinois dans le français.');
-  }
-  const protectedTerms = protectedLatinTerms(sourceText);
-  const missingProtectedTerm = protectedTerms.find((term) => !cleaned.includes(term));
-  if (missingProtectedTerm) {
-    throw new InvalidProviderResponseError(
-      `Le modèle local n'a pas conservé le sigle ou code : ${missingProtectedTerm}.`,
-    );
   }
   if (targetLanguage === 'zh-Hans') {
     if (!/\p{Script=Han}/u.test(cleaned) && hasTranslatableTextOutsideProtectedTerms(sourceText)) {

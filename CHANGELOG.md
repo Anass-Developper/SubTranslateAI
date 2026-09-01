@@ -4,6 +4,10 @@ All notable user-facing changes are documented here.
 
 ## [Unreleased]
 
+## [1.1.13] - 2026-09-01
+
+- Accept established target-language equivalents for acronyms, such as translating `ONU` to `联合国`, instead of reporting the local translation service as unavailable.
+
 ## [1.1.12] - 2026-09-01
 
 - Accept harmless capitalization changes when the local model normalizes acronyms such as `Nasa` to `NASA` in Chinese subtitles.

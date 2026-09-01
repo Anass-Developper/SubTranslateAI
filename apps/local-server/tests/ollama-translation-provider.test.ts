@@ -189,9 +189,28 @@ describe('OllamaTranslationProvider', () => {
       const body = JSON.parse(String((call[1] as RequestInit).body)) as {
         messages: Array<{ content: string }>;
       };
-      expect(body.messages[0]?.content).toContain('Preserve these acronyms');
+      expect(body.messages[0]?.content).toContain('Keep these acronyms or codes unchanged');
       expect(body.messages[0]?.content).toContain('NASA, FBI');
     }
+  });
+
+  it('accepte un équivalent chinois établi pour un sigle français', async () => {
+    const source = "Demande-lui, pour l'ONU.";
+    const provider = new OllamaTranslationProvider({
+      modelType: 'hy-mt',
+      fetchFunction: (async () => ollamaResponse('请替我问问他关于联合国的事。')) as typeof fetch,
+    });
+
+    await expect(
+      provider.translate(
+        { text: source, detectedLanguage: 'fr', previousLines: ['Parle-lui.'] },
+        { timeoutMs: 1_000, maxRetries: 0 },
+      ),
+    ).resolves.toEqual({
+      sourceLanguage: 'fr',
+      fr: source,
+      zh: '请替我问问他关于联合国的事。',
+    });
   });
 
   it('accepte un sous-titre composé uniquement du sigle FBI', async () => {

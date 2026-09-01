@@ -1,8 +1,8 @@
 import type { ProviderTranslation } from '@dual-subtitles/shared';
 
 /**
- * Returns acronyms and technical codes that must survive translation verbatim.
- * Ordinary capitalized words are intentionally excluded so the model can translate them.
+ * Returns acronyms and technical codes that need explicit translation guidance.
+ * Ordinary capitalized words are intentionally excluded.
  */
 export function protectedLatinTerms(sourceText: string): string[] {
   const terms =
@@ -22,18 +22,6 @@ export function isCachedTranslationPlausible(
   sourceText: string,
   translation: ProviderTranslation,
 ): boolean {
-  const protectedTerms = protectedLatinTerms(sourceText);
-  const translatedTargets =
-    translation.sourceLanguage === 'fr'
-      ? [translation.zh]
-      : translation.sourceLanguage === 'zh'
-        ? [translation.fr]
-        : [translation.fr, translation.zh];
-
-  if (protectedTerms.some((term) => translatedTargets.some((target) => !target.includes(term)))) {
-    return false;
-  }
-
   if (translation.sourceLanguage === 'zh') {
     return !/\p{Script=Han}/u.test(translation.fr);
   }
